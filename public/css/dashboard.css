@@ -1,0 +1,252 @@
+
+.greet_con {
+    justify-content: space-evenly;
+    align-items: center;
+    height: 180px;
+    display: flex;
+    background: linear-gradient(to right, #1E40AF, #4562c2);
+    /* background-color: #fb7c518f; */
+    /* background-color: #1e40af; */
+    border-radius: 4px;
+}
+
+.greet_con div:first-child div:first-child {
+    color: #63B259;
+}
+
+.greet1 {
+    width: 50%;
+}
+
+.greet2 {
+    width: 25%;
+    height: 100%;
+    position: relative;
+}
+
+.greet2 img {
+    position: absolute;
+    top: -10px;
+}
+
+.quotes_con {
+    color: #122F51;
+}
+
+.general {
+    display: flex;
+    justify-content: space-between
+}
+
+.general1 {
+    width: 66%;
+}
+
+.general2 {
+    width: 33%;
+    background-color: white;
+}
+
+.general_total {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.general_box {
+    width: 50%;
+    border-radius: 3px;
+    background-color: white;
+    padding: 30px 10px;
+    display: flex;
+}
+
+.general_box div {
+    width: 50%;
+}
+
+.general_box:first-child {
+    background: linear-gradient(to right, #1E40AF, #4562c2);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.247);
+    padding-left: 30px;
+}
+
+.general_box:first-child div:last-child {
+    width: 200px;
+    right: 1px;
+    top: -1px;
+    position: absolute;
+}
+.general_box:first-child h1 {
+    font-weight: bold;
+    font-size: 40px;
+    margin-top: 15px;
+}
+
+.general_box:last-child div:first-child {
+    text-align: center;
+    font-size: 70px;
+    color: #1E40AF;
+}
+
+.general_box:last-child h2 {
+    padding-bottom: 5px;
+    font-weight: bold;
+}
+
+.general_box:last-child h1 {
+    color: #1E40AF;
+    font-weight: bold;
+    font-size: 40px;
+    margin-top: 10px;
+}
+
+.general_gender {
+    width: 100%;
+    background-color: white;
+    padding: 15px;
+    margin-top: 10px;
+    border-radius: 4px;
+}
+
+.gender_title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 15px;
+}
+
+.gender_title h1 {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.gender_bot {
+    display: flex;
+    padding: 0 15px;
+}
+
+.gender_chart {
+    width: 50%;
+    margin-left: 2%;
+}
+
+.gender_chart canvas {
+    width: 100%;
+}
+
+.gender_legend {
+    width: 40%;
+    margin-left: auto;
+}
+
+.general2 {
+    padding: 25px 10px;
+    border-radius: 4px;
+}
+
+
+@media only screen and (max-width: 1050px) {
+    .greet2 {
+        width: 30%;
+    }
+    .general {
+        display: block;
+    }
+    .general1 {
+        width: 100%;
+    }
+    .general2 {
+        width: 100%;
+        margin-top: 15px;
+    }
+
+}
+
+@media only screen and (max-width: 800px) {
+    .greet_con {
+        display: flex;
+        flex-direction: column;
+        text-align: center;
+        padding-bottom: 30px;
+        height: fit-content;
+    }
+
+    .greet1 {
+        width: 100%;
+        order: 2;
+        margin-top: 0.3rem;
+    }
+
+    .greet2 {
+        width: 40%;
+        margin-left: auto;
+        margin-right: auto;
+        order: 1;
+    }
+
+    .greet2 img {
+        position: relative;
+        top: -5px;
+    }
+}
+
+@media only screen and (max-width: 720px) {
+    .greet_con {
+        display: flex;
+        flex-direction: column;
+        text-align: center;
+        padding-bottom: 30px;
+        height: fit-content;
+    }
+
+    .greet1 {
+        width: 100%;
+        order: 2;
+        margin-top: 0.3rem;
+    }
+
+    .greet2 {
+        width: 40%;
+        margin-left: auto;
+        margin-right: auto;
+        order: 1;
+    }
+
+    .greet2 img {
+        position: relative;
+        top: -5px;
+    }
+
+    .general_total {
+        display: block;
+    }
+
+    .general_box {
+        width: 100%;
+    }
+    .general_box:last-child {
+        margin-top: 10px;
+        justify-content: space-between;
+    }
+    .general_box:first-child {
+        height: 140px;
+    }
+
+    .gender_bot {
+        display: block;
+    }
+    .gender_chart {
+        width: 100%;
+        margin-left: 0;
+    }
+    .gender_legend {
+        width: 100%;
+        margin-left: 0;
+        margin-top: 35px;
+    }
+}

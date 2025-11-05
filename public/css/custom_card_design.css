@@ -1,0 +1,47 @@
+.card {
+    width: 500px;
+    height: 600px;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #303030;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1), 0px 8px 16px rgba(0, 0, 0, 0.1); /* Adjust the shadow values */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+
+.form-container {
+    width: 100%; /* Set the width to take up the full width of the card */
+    max-width: 400px; /* Adjust as needed */
+    padding: 20px; /* Adjust as needed */
+    text-align: center;
+}
+
+.form-container input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc; /* Adjust as needed */
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.form-container button {
+    width: 100%;
+    padding: 10px;
+    background-color: #4CAF50; /* Adjust as needed */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.form-container button:hover {
+    background-color: #45a049; /* Adjust as needed */
+}

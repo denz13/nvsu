@@ -1,0 +1,19 @@
+/* Ensure that the modal appears behind the SweetAlert */
+.modal_z_index_edited {
+    z-index: 100 !important; /* Lower z-index for the modal */
+}
+
+/* Add this CSS to your styles or in a <style> tag in your HTML */
+.my-swal2-container {
+    z-index: 1001 !important; /* Set a higher Z-index value */
+}
+
+.swal2-container {
+    z-index: 1100000;
+}
+
+.custom-swal-modal-responsive {
+    /* Add responsive styles here */
+    max-width: 100%;
+}
+

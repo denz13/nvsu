@@ -1,0 +1,187 @@
+body {
+    font-family: 'Roboto', sans-serif;
+    /* background-color: #f4f4f4; */
+    margin: 0;
+    padding: 0;
+}
+
+.table-container {
+    width: auto;
+    margin: 0 auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.material-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+    border: 1px solid #e0e0e0; /* Add a border style */
+}
+
+.material-table th,
+.material-table td {
+    padding: 16px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+    border-right: 1px solid #e0e0e0; /* Add a vertical border */
+}
+
+.material-table th:last-child,
+.material-table td:last-child {
+    border-right: none; /* Remove the vertical border on the last column */
+}
+
+.material-table th {
+    background-color: #f7f7f7;
+    font-weight: 500;
+}
+
+.material-table tbody tr:hover {
+    background-color: #f0f0f0;
+    transition: background-color 0.2s ease-in-out;
+}
+
+/* Buttons for actions */
+.radio-container {
+    max-width: 300px;
+    margin: 20px auto;
+}
+
+.material-radio {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    margin-bottom: 12px;
+    transition: background-color 0.2s;
+}
+
+.radio-input {
+    opacity: 0;
+    position: absolute;
+}
+
+.radio-style {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #9e9e9e;
+    border-radius: 50%;
+    margin-right: 12px;
+    position: relative;
+    transition: border-color 0.2s ease-in-out, transform 0.2s, background-color 0.2s;
+}
+
+.radio-style::before {
+    content: '';
+    width: 100%;
+    height: 100%;
+    background-color: transparent;
+    border-radius: 50%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: scale(0);
+    transition: transform 0.2s ease-in-out, background-color 0.2s;
+}
+
+.radio-input:checked ~ .radio-style::before {
+    background-color: #007bff;
+    transform: scale(1);
+}
+
+.material-radio:hover .radio-style {
+    border-color: #007bff;
+    transform: scale(1.05);
+}
+
+/*label content editable*/
+
+.label-container {
+    max-width: 300px;
+    margin: 20px auto;
+}
+
+.editable-label {
+    display: block;
+    padding: 1px 0;
+    position: relative;
+    cursor: text;
+    outline: none;
+    transition: border-color 0.2s;
+    min-height: 1em; /* Ensures consistent height even when empty */
+}
+
+/* Show placeholder when empty */
+.editable-label:empty::before {
+    content: attr(data-placeholder); /* Dynamically use the placeholder */
+    display: block;
+    color: #9e9e9e;
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    pointer-events: none;
+    transition: color 0.2s, transform 0.2s;
+}
+
+.editable-label::after {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 2px;
+    background-color: #9e9e9e; /* Grey color when not focused */
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    transform: scaleX(1);
+    transform-origin: bottom left;
+    transition: background-color 0.2s ease-in-out;
+}
+
+/* Show placeholder when not focused and empty */
+.editable-label:empty::before {
+    content: attr(data-placeholder); /* Placeholder from data-placeholder attribute */
+    display: block;
+    color: #9e9e9e;
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    pointer-events: none; /* Prevent interaction with the placeholder */
+    transition: color 0.2s, transform 0.2s;
+}
+
+/* Hide placeholder when focused or has content */
+.editable-label:focus::before,
+.editable-label:not(:empty)::before {
+    display: none;
+}
+
+.editable-label.has-error::after {
+    background-color: #f44336; /* Red color for error */
+}
+
+.editable-label:focus::after {
+    background-color: #007bff; /* Blue color when focused */
+}
+
+/* boxes*/
+.boxes {
+    inline-size: auto;
+    overflow-wrap: break-all;
+}
+
+/* boxes instruction*/
+.boxeses {
+    max-inline-size: calc(100% - 2rem); /* Adjust the left margin as needed (4rem in this case) */
+    overflow-wrap: break-all;
+    margin-left: 2rem;
+}
+
+/*================================================================*/
+
+
+

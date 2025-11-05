@@ -1,0 +1,199 @@
+/**Mao ni sya sa drop down na css **/
+
+.select2-container--mali .select2-search--inline .select2-search__field::-webkit-search-cancel-button{-webkit-appearance:none}
+
+.select2-container--mali .select2-results__option--highlighted[aria-selected] {
+    background-color: #1e40af;
+    color: #f0f0f0;
+}
+
+.select2-container--mali .select2-results__option--selected {
+    background-color: #ddd;
+}
+
+.select2-container--mali .select2-results__option {
+    padding: 0.6rem 0.6rem;
+}
+
+.select2-container--mali{
+    z-index:100000;
+}
+
+.select2-container--mali{
+    box-sizing:border-box;
+    display:inline-block;
+    margin:0;position:relative;
+    vertical-align:middle
+}
+
+.select2-container--mali .select2-selection--multiple .select2-selection__choice__remove:hover, .select2-container--mali .select2-selection--multiple .select2-selection__choice__remove:focus {
+    background-color: #f1f1f1;
+    color: #333;
+    outline: none;
+}
+
+/**===**/ search on the inline
+
+
+/**Mao ni sya sa drop down na css **/
+
+.select2-container--mali.select2-container--focus .select2-selection--multiple {
+    background-color:#fff !important;
+    border:1px solid #ff0000 !important;
+    border-radius:6px !important;
+
+    padding: 8px 8px !important;
+    width: 100% !important;
+    overflow: hidden !important;
+    position: relative !important;
+    z-index: 1 !important;
+    box-sizing: border-box !important;
+    box-shadow: none !important;
+
+    display: flex !important;
+    flex-wrap: wrap !important;
+    padding-left: 0.375rem !important;
+    padding-right: 0.375rem !important;
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+}
+
+.select2-container--mali .select2-selection--multiple .select2-selection__choice__remove {
+    top: 0;
+    left: unset;
+    right: 0;
+    color: inherit;
+    text-decoration: none;
+    vertical-align: middle;
+    display: inline-block;
+    padding: 2px 8px;
+    border-left: 1px solid #d0d0d0;
+    border-radius: 0 2px 2px 0;
+    box-sizing: border-box;
+    margin-left: 6px;
+    border-right: none;
+    font-size: 0.8rem;
+    font-weight: 400;
+}
+
+.select2-container--mali .select2-selection--multiple .select2-selection__choice__remove:hover {
+    background: rgba(0, 0, 0, 0.05) !important;
+}
+
+
+.select2-container--mali.select2-container .select2-selection--multiple {
+    background-color:#fff !important;
+    border:1px solid #ff0000 !important;
+    border-radius:6px !important;
+
+    padding: 8px 8px !important;
+    width: 100% !important;
+    overflow: hidden !important;
+    position: relative !important;
+    z-index: 1 !important;
+    box-sizing: border-box !important;
+    box-shadow: none !important;
+
+    display: flex !important;
+    flex-wrap: wrap !important;
+    padding-left: 0.375rem !important;
+    padding-right: 0.375rem !important;
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+    min-height: 40px !important;
+}
+
+.select2-container--mali .select2-selection--multiple .select2-selection__choice {
+
+    background-color: rgb(var(--color-slate-200) / var(--tw-bg-opacity)) !important;
+    border: none !important;
+    border-radius: 0.25rem !important;
+    display: inline-block;
+    margin-left: 5px;
+    margin-top: 3px;
+    padding-left: 0.5rem !important;
+    padding-right: 1.6rem !important;
+    padding-top: 0.1rem !important;
+    padding-bottom: 0.2rem !important;
+    position: relative;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.6rem !important;
+
+}
+
+.select2-container--mali .select2-selection--multiple .select2-selection__clear {
+    cursor: pointer;
+    font-weight: bold;
+    height: 20px;
+    margin-right: 10px;
+    margin-top: 5px;
+    position: absolute;
+    right: 0;
+    padding: 1px;
+    color: rgba(197, 202, 209, 1.0) !important;
+    font-size: 1.2rem !important;
+}
+
+.select2-container--mali .select2-search--inline .select2-search__field {
+    box-sizing: border-box;
+    border: none;
+    font-size: 100%;
+    margin-top: 5px;
+    margin-left: 5px;
+    padding: 0;
+    max-width: 100%;
+    resize: none;
+    height: 18px;
+    vertical-align: bottom;
+    font-family: sans-serif;
+    overflow: hidden;
+    word-break: keep-all;
+}
+
+.select2-container--mali .select2-search--inline .select2-search__field {
+    background: transparent;
+    border: none;
+    outline: 0;
+    box-shadow: none;
+    -webkit-appearance: textfield;
+}
+
+
+.select2-container--mali .select2-search--inline .select2-search__field{background:transparent;border:none;outline:0;box-shadow:none;-webkit-appearance:textfield}
+
+.select2-container--mali .select2-results>.select2-results__options{max-height:200px;overflow-y:auto}
+
+.select2-container--mali .select2-results__option .select2-results__option{padding-left:1em}
+
+.select2-container--mali .select2-results__option .select2-results__option .select2-results__group{padding-left:0}
+
+.select2-container--mali .select2-results__option .select2-results__option .select2-results__option{margin-left:-1em;padding-left:2em}
+
+.select2-container--mali .select2-results__option .select2-results__option .select2-results__option .select2-results__option{margin-left:-2em;padding-left:3em}
+
+.select2-container--mali .select2-results__option .select2-results__option .select2-results__option .select2-results__option .select2-results__option{margin-left:-3em;padding-left:4em}
+
+.select2-container--mali .select2-results__option .select2-results__option .select2-results__option .select2-results__option .select2-results__option .select2-results__option{margin-left:-4em;padding-left:5em}
+
+.select2-container--mali .select2-results__option .select2-results__option .select2-results__option .select2-results__option .select2-results__option .select2-results__option .select2-results__option{margin-left:-5em;padding-left:6em}
+
+.select2-container--mali .select2-results__option--group{padding:0}
+
+.select2-container--mali .select2-results__option--disabled{color:#999}
+
+.select2-container--mali .select2-results__option--selected{background-color:#ddd}
+
+.select2-container--mali .select2-results__option--highlighted.select2-results__option--selectable{background-color: #1e40af;color:white}
+
+.select2-container--mali .select2-results__group{cursor:default;display:block;padding:6px}
+
+
+
+/**New na add na css **/
+
+
+
+

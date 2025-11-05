@@ -1,0 +1,52 @@
+.custom-popup-class {
+    width: 200px; /* Adjust width as needed */
+    background-color: transparent !important;
+    padding: 0 !important; /* Prevents padding from affecting layout */
+    margin: 0 !important; /* Prevents margin from affecting layout */
+    box-shadow: none !important; /* Removes box shadow */
+    border: none !important; /* Removes border */
+  }
+
+.my-swal-popup {
+    width: 500px; /* Adjust as needed */
+    font-size: 16px; /* Adjust as needed */
+}
+
+.rating {
+    margin-top: 5px;
+    border: none;
+    flex-direction: row-reverse; /* This aligns items from right to left */
+    float: left;
+}
+
+.rating > label {
+    color: #90A0A3;
+    float: right;
+}
+
+.rating > label:before {
+    margin: 5px;
+    font-size: 1.25em;
+    font-family: FontAwesome;
+    content: "\f005";
+    display: inline-block;
+}
+
+.rating > input {
+    display: none;
+}
+
+.rating > input:checked ~ label,
+.rating:not(:checked) > label:hover,
+.rating:not(:checked) > label:hover ~ label {
+    color: #F79426;
+}
+
+.rating > input:checked + label:hover,
+.rating > input:checked ~ label:hover,
+.rating > label:hover ~ input:checked ~ label,
+.rating > input:checked ~ label:hover ~ label {
+color: #FECE31;
+}
+
+
