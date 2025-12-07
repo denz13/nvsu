@@ -43,6 +43,66 @@ function toggleDatetimeFields(scheduleType, prefix) {
     }
 }
 
+// Client-side datetime validation function (moved to global scope)
+function validateDatetimeFields(form, scheduleType) {
+    const prefix = form.id === 'add-product-form' ? 'add' : 'edit';
+    const errors = [];
+    
+    // Helper function to compare datetime-local values
+    const compareDates = (dateStr1, dateStr2) => {
+        // datetime-local format is YYYY-MM-DDTHH:mm
+        // Parse as local time for accurate comparison
+        const date1 = new Date(dateStr1 + ':00'); // Add seconds
+        const date2 = new Date(dateStr2 + ':00'); // Add seconds
+        return date1.getTime() - date2.getTime();
+    };
+    
+    if (scheduleType === 'whole_day') {
+        const morningStart = document.getElementById(`${prefix}-start-datetime-morning`);
+        const morningEnd = document.getElementById(`${prefix}-end-datetime-morning`);
+        const afternoonStart = document.getElementById(`${prefix}-start-datetime-afternoon`);
+        const afternoonEnd = document.getElementById(`${prefix}-end-datetime-afternoon`);
+        
+        if (morningStart && morningEnd && morningStart.value && morningEnd.value) {
+            if (compareDates(morningEnd.value, morningStart.value) <= 0) {
+                errors.push('Morning end time must be after morning start time.');
+            }
+        }
+        
+        if (morningEnd && afternoonStart && morningEnd.value && afternoonStart.value) {
+            if (compareDates(afternoonStart.value, morningEnd.value) <= 0) {
+                errors.push('Afternoon start time must be after morning end time.');
+            }
+        }
+        
+        if (afternoonStart && afternoonEnd && afternoonStart.value && afternoonEnd.value) {
+            if (compareDates(afternoonEnd.value, afternoonStart.value) <= 0) {
+                errors.push('Afternoon end time must be after afternoon start time.');
+            }
+        }
+    } else if (scheduleType === 'half_day_morning') {
+        const morningStart = document.getElementById(`${prefix}-start-datetime-morning`);
+        const morningEnd = document.getElementById(`${prefix}-end-datetime-morning`);
+        
+        if (morningStart && morningEnd && morningStart.value && morningEnd.value) {
+            if (compareDates(morningEnd.value, morningStart.value) <= 0) {
+                errors.push('Morning end time must be after morning start time.');
+            }
+        }
+    } else if (scheduleType === 'half_day_afternoon') {
+        const afternoonStart = document.getElementById(`${prefix}-start-datetime-afternoon`);
+        const afternoonEnd = document.getElementById(`${prefix}-end-datetime-afternoon`);
+        
+        if (afternoonStart && afternoonEnd && afternoonStart.value && afternoonEnd.value) {
+            if (compareDates(afternoonEnd.value, afternoonStart.value) <= 0) {
+                errors.push('Afternoon end time must be after afternoon start time.');
+            }
+        }
+    }
+    
+    return errors;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Reset modal when "Add New Event" button is clicked
     const addBtn = document.querySelector('[data-tw-target="#add-product-modal"]');
@@ -69,66 +129,6 @@ document.addEventListener('DOMContentLoaded', function() {
         editScheduleType.addEventListener('change', function() {
             toggleDatetimeFields(this.value, 'edit');
         });
-    }
-    
-    // Client-side datetime validation function
-    function validateDatetimeFields(form, scheduleType) {
-        const prefix = form.id === 'add-product-form' ? 'add' : 'edit';
-        const errors = [];
-        
-        // Helper function to compare datetime-local values
-        const compareDates = (dateStr1, dateStr2) => {
-            // datetime-local format is YYYY-MM-DDTHH:mm
-            // Parse as local time for accurate comparison
-            const date1 = new Date(dateStr1 + ':00'); // Add seconds
-            const date2 = new Date(dateStr2 + ':00'); // Add seconds
-            return date1.getTime() - date2.getTime();
-        };
-        
-        if (scheduleType === 'whole_day') {
-            const morningStart = document.getElementById(`${prefix}-start-datetime-morning`);
-            const morningEnd = document.getElementById(`${prefix}-end-datetime-morning`);
-            const afternoonStart = document.getElementById(`${prefix}-start-datetime-afternoon`);
-            const afternoonEnd = document.getElementById(`${prefix}-end-datetime-afternoon`);
-            
-            if (morningStart && morningEnd && morningStart.value && morningEnd.value) {
-                if (compareDates(morningEnd.value, morningStart.value) <= 0) {
-                    errors.push('Morning end time must be after morning start time.');
-                }
-            }
-            
-            if (morningEnd && afternoonStart && morningEnd.value && afternoonStart.value) {
-                if (compareDates(afternoonStart.value, morningEnd.value) <= 0) {
-                    errors.push('Afternoon start time must be after morning end time.');
-                }
-            }
-            
-            if (afternoonStart && afternoonEnd && afternoonStart.value && afternoonEnd.value) {
-                if (compareDates(afternoonEnd.value, afternoonStart.value) <= 0) {
-                    errors.push('Afternoon end time must be after afternoon start time.');
-                }
-            }
-        } else if (scheduleType === 'half_day_morning') {
-            const morningStart = document.getElementById(`${prefix}-start-datetime-morning`);
-            const morningEnd = document.getElementById(`${prefix}-end-datetime-morning`);
-            
-            if (morningStart && morningEnd && morningStart.value && morningEnd.value) {
-                if (compareDates(morningEnd.value, morningStart.value) <= 0) {
-                    errors.push('Morning end time must be after morning start time.');
-                }
-            }
-        } else if (scheduleType === 'half_day_afternoon') {
-            const afternoonStart = document.getElementById(`${prefix}-start-datetime-afternoon`);
-            const afternoonEnd = document.getElementById(`${prefix}-end-datetime-afternoon`);
-            
-            if (afternoonStart && afternoonEnd && afternoonStart.value && afternoonEnd.value) {
-                if (compareDates(afternoonEnd.value, afternoonStart.value) <= 0) {
-                    errors.push('Afternoon end time must be after afternoon start time.');
-                }
-            }
-        }
-        
-        return errors;
     }
     
     // Handle Save Event Button
@@ -312,6 +312,53 @@ window.addParticipants = function(eventId) {
         setTomOptions('#ap-college', collegesWithAll, '-- Select College --', {allowEmptyOption: true});
         setTomOptions('#ap-program', programsWithAll, '-- Select Program --', {allowEmptyOption: true});
         setTomOptions('#ap-organization', organizationsWithSpecial, '-- Select Organization --', {allowEmptyOption: true});
+        
+        // Store original data for filtering
+        const allPrograms = data.programs || [];
+        const allOrganizations = data.organizations || [];
+        const organizationsByCollege = data.organizations_by_college || {};
+        
+        // Add event listener for college change to filter programs and organizations
+        const collegeSelect = document.getElementById('ap-college');
+        if (collegeSelect && collegeSelect.tomselect) {
+            collegeSelect.tomselect.on('change', function(value) {
+                const selectedCollegeId = value ? String(value) : '';
+                
+                // Filter programs by college_id
+                let filteredPrograms = [];
+                if (selectedCollegeId === '') {
+                    // Show all programs if "All" is selected
+                    filteredPrograms = allPrograms;
+                } else {
+                    // Filter programs that belong to selected college
+                    filteredPrograms = allPrograms.filter(p => String(p.college_id) === selectedCollegeId);
+                }
+                
+                // Add "All" option
+                const programsWithAll = [{ id: '', text: 'All' }, ...filteredPrograms];
+                setTomOptions('#ap-program', programsWithAll, '-- Select Program --', {allowEmptyOption: true});
+                
+                // Filter organizations by college (via students)
+                let filteredOrganizations = [];
+                if (selectedCollegeId === '') {
+                    // Show all organizations if "All" is selected
+                    filteredOrganizations = allOrganizations;
+                } else {
+                    // Get organization IDs for this college
+                    const orgIds = organizationsByCollege[selectedCollegeId] || [];
+                    // Filter organizations that belong to selected college
+                    filteredOrganizations = allOrganizations.filter(o => orgIds.includes(Number(o.id)));
+                }
+                
+                // Add "All" and "None" options
+                const organizationsWithSpecial = [
+                    { id: '', text: 'All' }, 
+                    { id: 'none', text: 'None' }, 
+                    ...filteredOrganizations
+                ];
+                setTomOptions('#ap-organization', organizationsWithSpecial, '-- Select Organization --', {allowEmptyOption: true});
+            });
+        }
         
         // Get event schedule type
         const scheduleType = data.event ? data.event.event_schedule_type : 'whole_day';

@@ -75,8 +75,14 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             const btn = e.target.closest('.generate-receipt-btn');
             const paymentId = btn.getAttribute('data-payment-id');
+            const studentId = btn.getAttribute('data-student-id');
+            const eventId = btn.getAttribute('data-event-id');
+            
             if (paymentId) {
                 generateReceipt(paymentId);
+            } else if (studentId && eventId) {
+                // Create payment record first, then generate receipt
+                createPaymentAndGenerateReceipt(studentId, eventId);
             }
         }
     });
@@ -544,6 +550,35 @@ function saveWaiver() {
             saveBtn.disabled = false;
             saveBtn.innerHTML = '<i data-lucide="save" class="w-4 h-4 mr-2"></i> Save Waiver';
         }
+    });
+}
+
+// Create payment record and generate receipt
+function createPaymentAndGenerateReceipt(studentId, eventId) {
+    fetch(`/listpaymentrequest/create-payment`, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            student_id: studentId,
+            event_id: eventId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.payment_id) {
+            // Now generate receipt with the new payment ID
+            generateReceipt(data.payment_id);
+        } else {
+            showListPaymentRequestToast(data.message || 'Failed to create payment record', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showListPaymentRequestToast('An error occurred while creating payment record', 'error');
     });
 }
 

@@ -87,6 +87,7 @@
                 </td>
                 <td class="table-report__action w-56">
                     <div class="flex justify-center items-center gap-2">
+                        @if($payment['id'])
                         <a class="flex items-center view-payment-details-btn" 
                            href="javascript:;" 
                            data-payment-id="{{ $payment['id'] }}"
@@ -133,6 +134,22 @@
                         <a class="flex items-center text-success generate-receipt-btn" 
                            href="javascript:;" 
                            data-payment-id="{{ $payment['id'] }}"
+                           title="Generate Receipt">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-receipt w-4 h-4">
+                                <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"></path>
+                                <path d="M14 8H8"></path>
+                                <path d="M16 12H8"></path>
+                                <path d="M13 16H8"></path>
+                            </svg>
+                        </a>
+                        @endif
+                        @else
+                        {{-- No payment record yet - allow generating receipt directly --}}
+                        <a class="flex items-center text-success generate-receipt-btn" 
+                           href="javascript:;" 
+                           data-student-id="{{ $payment['student_id'] }}"
+                           data-event-id="{{ $payment['event_id'] }}"
+                           data-payment-id=""
                            title="Generate Receipt">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-receipt w-4 h-4">
                                 <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"></path>

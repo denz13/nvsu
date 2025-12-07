@@ -94,13 +94,25 @@ class EventsController extends Controller
             
             // Use fallback empty collections if tables are empty to avoid errors
             $colleges = college::orderBy('college_name', 'asc')->get(['id','college_name']);
-            $programs = program::orderBy('program_name', 'asc')->get(['id','program_name']);
+            $programs = program::orderBy('program_name', 'asc')->get(['id','program_name','college_id']);
             $organizations = organization::orderBy('organization_name', 'asc')->get(['id','organization_name']);
             
-            // Normalize to {id, text}
+            // Normalize to {id, text, college_id} for programs to enable filtering
             $colleges = $colleges->map(function($c){ return ['id' => $c->id, 'text' => $c->college_name]; });
-            $programs = $programs->map(function($p){ return ['id' => $p->id, 'text' => $p->program_name]; });
+            $programs = $programs->map(function($p){ return ['id' => $p->id, 'text' => $p->program_name, 'college_id' => $p->college_id]; });
             $organizations = $organizations->map(function($o){ return ['id' => $o->id, 'text' => $o->organization_name]; });
+            
+            // Get organizations that belong to each college (via students)
+            // Group organizations by college_id from students table
+            $organizationsByCollege = students::select('college_id', 'organization_id')
+                ->whereNotNull('college_id')
+                ->whereNotNull('organization_id')
+                ->distinct()
+                ->get()
+                ->groupBy('college_id')
+                ->map(function($group) {
+                    return $group->pluck('organization_id')->unique()->values()->toArray();
+                });
             
             // Include college_id/program_id for client-side filtering
             $studentList = students::orderBy('student_name','asc')->limit(1000)
@@ -123,6 +135,7 @@ class EventsController extends Controller
                 'colleges' => $colleges,
                 'programs' => $programs,
                 'organizations' => $organizations,
+                'organizations_by_college' => $organizationsByCollege, // Map of college_id => [organization_ids]
                 'students' => $studentList,
                 'defaults' => [
                     'college_id' => $latestAssignment ? $latestAssignment->college_id : null,

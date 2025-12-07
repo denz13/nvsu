@@ -65,11 +65,8 @@
 <!-- END: Toast Component -->
 
 <!-- BEGIN: Add Product Modal -->
-@include('components.modal', [
-'modalId' => 'add-product-modal',
-'size' => 'lg',
-'title' => 'Add New Organization',
-'body' => '
+@php
+    $addOrganizationBody = '
 <form id="add-product-form" enctype="multipart/form-data">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="md:col-span-2">
@@ -79,6 +76,28 @@
         <div class="md:col-span-2">
             <label class="form-label">Description</label>
             <textarea class="form-control" name="organization_description" rows="3" placeholder="Enter organization description"></textarea>
+        </div>
+        <div>
+            <label class="form-label">College</label>
+            <select class="form-control" id="add-college" name="college_id">
+                <option value="">-- Select College --</option>';
+    foreach($colleges as $college) {
+        $addOrganizationBody .= '
+                <option value="'.$college->id.'" data-college-id="'.$college->id.'">'.$college->college_name.'</option>';
+    }
+    $addOrganizationBody .= '
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Program</label>
+            <select class="form-control" id="add-program" name="program_id">
+                <option value="">-- Select Program --</option>';
+    foreach($programs as $program) {
+        $addOrganizationBody .= '
+                <option value="'.$program->id.'" data-college-id="'.$program->college_id.'" style="display: none;">'.$program->program_name.'</option>';
+    }
+    $addOrganizationBody .= '
+            </select>
         </div>
         <div class="md:col-span-2">
             <label class="form-label">Photo</label>
@@ -95,8 +114,13 @@
             </div>
         </div>
     </div>
-</form>
-',
+</form>';
+@endphp
+@include('components.modal', [
+'modalId' => 'add-product-modal',
+'size' => 'lg',
+'title' => 'Add New Organization',
+'body' => $addOrganizationBody,
 'footer' => '
 <button type="button" class="btn btn-secondary" data-tw-dismiss="modal">Cancel</button>
 <button type="button" class="btn btn-primary" id="save-product-btn">
@@ -108,11 +132,8 @@
 <!-- END: Add Product Modal -->
 
 <!-- BEGIN: Edit Product Modal -->
-@include('components.modal', [
-'modalId' => 'edit-product-modal',
-'size' => 'lg',
-'title' => 'Edit Organization',
-'body' => '
+@php
+    $editOrganizationBody = '
 <form id="edit-product-form" enctype="multipart/form-data">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="md:col-span-2">
@@ -122,6 +143,28 @@
         <div class="md:col-span-2">
             <label class="form-label">Description</label>
             <textarea class="form-control" id="edit-organization-description" name="organization_description" rows="3" placeholder="Enter organization description"></textarea>
+        </div>
+        <div>
+            <label class="form-label">College</label>
+            <select class="form-control" id="edit-college" name="college_id">
+                <option value="">-- Select College --</option>';
+    foreach($colleges as $college) {
+        $editOrganizationBody .= '
+                <option value="'.$college->id.'" data-college-id="'.$college->id.'">'.$college->college_name.'</option>';
+    }
+    $editOrganizationBody .= '
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Program</label>
+            <select class="form-control" id="edit-program" name="program_id">
+                <option value="">-- Select Program --</option>';
+    foreach($programs as $program) {
+        $editOrganizationBody .= '
+                <option value="'.$program->id.'" data-college-id="'.$program->college_id.'" style="display: none;">'.$program->program_name.'</option>';
+    }
+    $editOrganizationBody .= '
+            </select>
         </div>
         <div class="md:col-span-2">
             <label class="form-label">Photo</label>
@@ -139,8 +182,13 @@
             </div>
         </div>
     </div>
-</form>
-',
+</form>';
+@endphp
+@include('components.modal', [
+'modalId' => 'edit-product-modal',
+'size' => 'lg',
+'title' => 'Edit Organization',
+'body' => $editOrganizationBody,
 'footer' => '
 <button type="button" class="btn btn-secondary" data-tw-dismiss="modal">Cancel</button>
 <button type="button" class="btn btn-primary" id="update-product-btn">

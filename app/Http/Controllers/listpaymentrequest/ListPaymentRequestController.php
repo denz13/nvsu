@@ -7,69 +7,177 @@ use Illuminate\Http\Request;
 use App\Models\attendance_payments;
 use App\Models\attendance_payments_time_schedule;
 use App\Models\generated_receipt;
+use App\Models\tbl_attendance;
+use App\Models\students;
+use App\Models\events;
 
 class ListPaymentRequestController extends Controller
 {
     public function listPaymentRequest()
     {
-        // Get all payment requests with related data
-        $paymentRequests = attendance_payments::with([
+        // Get all unique student-event combinations from attendance records
+        $attendanceRecords = tbl_attendance::with(['student.college', 'student.program', 'event'])
+            ->where('status', 'active')
+            ->select('student_id', 'event_id')
+            ->distinct()
+            ->get();
+
+        // Get all existing payment requests
+        $existingPayments = attendance_payments::with([
             'students.college',
             'students.program',
             'students.organization',
             'events'
         ])
             ->where('status', 'active')
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
+            ->get()
+            ->keyBy(function($payment) {
+                return $payment->students_id . '_' . $payment->events_id;
+            });
 
-        // Format payment requests with time schedule details
+        // Build formatted payments array
         $formattedPayments = [];
-        foreach ($paymentRequests as $payment) {
-            // Get time schedules for this payment
-            $timeSchedules = attendance_payments_time_schedule::where('attendance_payments_id', $payment->id)
-                ->where('status', 'active')
-                ->orderBy('log_time', 'asc')
-                ->get();
+        $studentEventMap = [];
 
-            // Count time in (workstate = 0) and time out (workstate = 1)
-            $timeInCount = $timeSchedules->where('workstate', 0)->count();
-            $timeOutCount = $timeSchedules->where('workstate', 1)->count();
-
-            // Get student info
-            $student = $payment->students;
-            $event = $payment->events;
-
-            // Format schedule periods
-            $schedulePeriods = $timeSchedules->pluck('type_of_schedule_pay')->unique()->values()->toArray();
-            $schedulePeriodsText = implode(', ', array_map(function($period) {
-                return ucfirst(str_replace('_', ' ', $period));
-            }, $schedulePeriods));
-
-            $formattedPayments[] = [
-                'id' => $payment->id,
-                'student_id' => $payment->students_id,
-                'student_name' => $student ? $student->student_name : 'N/A',
-                'student_id_number' => $student ? $student->id_number : 'N/A',
-                'student_photo' => $student ? $student->photo : null,
-                'college' => $student && $student->college ? $student->college->college_name : 'N/A',
-                'program' => $student && $student->program ? $student->program->program_name : 'N/A',
-                'event_id' => $payment->events_id,
-                'event_name' => $event ? $event->event_name : 'N/A',
-                'amount_paid' => $payment->amount_paid ?? 0,
-                'payment_status' => $payment->payment_status ?? 'pending',
-                'schedule_periods' => $schedulePeriodsText ?: 'N/A',
-                'time_in_count' => $timeInCount,
-                'time_out_count' => $timeOutCount,
-                'total_schedules' => $timeSchedules->count(),
-                'created_at' => $payment->created_at,
-                'time_schedules' => $timeSchedules,
-            ];
+        // Group attendance records by student-event combination
+        foreach ($attendanceRecords as $attendance) {
+            // Skip if student or event relationship is missing
+            if (!$attendance->student_id || !$attendance->event_id || !$attendance->student || !$attendance->event) {
+                continue;
+            }
+            
+            $key = $attendance->student_id . '_' . $attendance->event_id;
+            
+            if (!isset($studentEventMap[$key])) {
+                $studentEventMap[$key] = [
+                    'student_id' => $attendance->student_id,
+                    'event_id' => $attendance->event_id,
+                    'student' => $attendance->student,
+                    'event' => $attendance->event,
+                ];
+            }
         }
+
+        // Process each student-event combination
+        foreach ($studentEventMap as $key => $data) {
+            $student = $data['student'];
+            $event = $data['event'];
+            
+            // Check if payment exists
+            $payment = $existingPayments->get($key);
+            
+            if ($payment) {
+                // Get time schedules for this payment
+                $timeSchedules = attendance_payments_time_schedule::where('attendance_payments_id', $payment->id)
+                    ->where('status', 'active')
+                    ->orderBy('log_time', 'asc')
+                    ->get();
+
+                // Count time in (workstate = 0) and time out (workstate = 1)
+                // Handle workstate as string ("0" or "1") or integer (0 or 1)
+                $timeInCount = $timeSchedules->filter(function($schedule) {
+                    $ws = $schedule->workstate;
+                    return $ws === "0" || $ws === 0 || $ws === "time_in";
+                })->count();
+                
+                $timeOutCount = $timeSchedules->filter(function($schedule) {
+                    $ws = $schedule->workstate;
+                    return $ws === "1" || $ws === 1 || $ws === "time_out";
+                })->count();
+
+                // Format schedule periods
+                $schedulePeriods = $timeSchedules->pluck('type_of_schedule_pay')->unique()->values()->toArray();
+                $schedulePeriodsText = implode(', ', array_map(function($period) {
+                    return ucfirst(str_replace('_', ' ', $period));
+                }, $schedulePeriods));
+
+                $formattedPayments[] = [
+                    'id' => $payment->id,
+                    'student_id' => $payment->students_id,
+                    'student_name' => $student ? $student->student_name : 'N/A',
+                    'student_id_number' => $student ? $student->id_number : 'N/A',
+                    'student_photo' => $student ? $student->photo : null,
+                    'college' => $student && $student->college ? $student->college->college_name : 'N/A',
+                    'program' => $student && $student->program ? $student->program->program_name : 'N/A',
+                    'event_id' => $payment->events_id,
+                    'event_name' => $event ? $event->event_name : 'N/A',
+                    'amount_paid' => $payment->amount_paid ?? 0,
+                    'payment_status' => $payment->payment_status ?? 'pending',
+                    'schedule_periods' => $schedulePeriodsText ?: 'N/A',
+                    'time_in_count' => $timeInCount,
+                    'time_out_count' => $timeOutCount,
+                    'total_schedules' => $timeSchedules->count(),
+                    'created_at' => $payment->created_at,
+                    'time_schedules' => $timeSchedules,
+                ];
+            } else {
+                // No payment record exists - create placeholder entry
+                // Get attendance records for this student-event to count time in/out
+                $studentAttendances = tbl_attendance::where('student_id', $data['student_id'])
+                    ->where('event_id', $data['event_id'])
+                    ->where('status', 'active')
+                    ->get();
+
+                // Handle workstate as string ("0" or "1") or integer (0 or 1)
+                $timeInCount = $studentAttendances->filter(function($att) {
+                    $ws = $att->workstate;
+                    return $ws === "0" || $ws === 0 || $ws === "time_in";
+                })->count();
+                
+                $timeOutCount = $studentAttendances->filter(function($att) {
+                    $ws = $att->workstate;
+                    return $ws === "1" || $ws === 1 || $ws === "time_out";
+                })->count();
+
+                $formattedPayments[] = [
+                    'id' => null, // No payment record yet
+                    'student_id' => $data['student_id'],
+                    'student_name' => $student ? $student->student_name : 'N/A',
+                    'student_id_number' => $student ? $student->id_number : 'N/A',
+                    'student_photo' => $student ? $student->photo : null,
+                    'college' => $student && $student->college ? $student->college->college_name : 'N/A',
+                    'program' => $student && $student->program ? $student->program->program_name : 'N/A',
+                    'event_id' => $data['event_id'],
+                    'event_name' => $event ? $event->event_name : 'N/A',
+                    'amount_paid' => 0, // No fines yet
+                    'payment_status' => 'pending',
+                    'schedule_periods' => 'N/A',
+                    'time_in_count' => $timeInCount,
+                    'time_out_count' => $timeOutCount,
+                    'total_schedules' => $studentAttendances->count(),
+                    'created_at' => $studentAttendances->min('created_at') ?? now(),
+                    'time_schedules' => collect([]),
+                ];
+            }
+        }
+
+        // Sort by created_at descending
+        usort($formattedPayments, function($a, $b) {
+            $dateA = $a['created_at'] instanceof \Carbon\Carbon ? $a['created_at'] : \Carbon\Carbon::parse($a['created_at']);
+            $dateB = $b['created_at'] instanceof \Carbon\Carbon ? $b['created_at'] : \Carbon\Carbon::parse($b['created_at']);
+            // Compare timestamps for descending order (newest first)
+            return $dateB->timestamp <=> $dateA->timestamp;
+        });
+
+        // Manual pagination
+        $perPage = 10;
+        $currentPage = request()->get('page', 1);
+        $total = count($formattedPayments);
+        $offset = ($currentPage - 1) * $perPage;
+        $paginatedPayments = array_slice($formattedPayments, $offset, $perPage);
+
+        // Create paginator-like object for view compatibility
+        $paymentRequests = new \Illuminate\Pagination\LengthAwarePaginator(
+            $paginatedPayments,
+            $total,
+            $perPage,
+            $currentPage,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
 
         return view('list_payment_request.list_payment_request', [
             'paymentRequests' => $paymentRequests,
-            'formattedPayments' => $formattedPayments,
+            'formattedPayments' => $paginatedPayments,
         ]);
     }
 
@@ -267,19 +375,82 @@ class ListPaymentRequestController extends Controller
         }
     }
 
+    public function createPayment(Request $request)
+    {
+        try {
+            $request->validate([
+                'student_id' => 'required',
+                'event_id' => 'required'
+            ]);
+
+            // Check if payment already exists
+            $existingPayment = attendance_payments::where('students_id', $request->student_id)
+                ->where('events_id', $request->event_id)
+                ->where('status', 'active')
+                ->first();
+
+            if ($existingPayment) {
+                return response()->json([
+                    'success' => true,
+                    'payment_id' => $existingPayment->id,
+                    'message' => 'Payment record already exists'
+                ]);
+            }
+
+            // Create new payment record with 0 amount (no fines)
+            $payment = attendance_payments::create([
+                'students_id' => $request->student_id,
+                'events_id' => $request->event_id,
+                'amount_paid' => 0,
+                'payment_status' => 'approved', // Auto-approve 0 amount payments so receipt can be generated
+                'status' => 'active'
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'payment_id' => $payment->id,
+                'message' => 'Payment record created successfully'
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create payment record: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function generateReceipt(Request $request, $id)
     {
         try {
             $payment = attendance_payments::where('id', $id)
                 ->where('status', 'active')
-                ->where('payment_status', 'approved')
                 ->first();
 
             if (!$payment) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Payment request not found or not approved'
+                    'message' => 'Payment request not found'
                 ], 404);
+            }
+
+            // Auto-approve if amount is 0 (no fines) so receipt can be generated
+            if (($payment->amount_paid ?? 0) == 0 && $payment->payment_status !== 'approved') {
+                $payment->payment_status = 'approved';
+                $payment->save();
+            }
+
+            // Check if already approved (or was just auto-approved)
+            if ($payment->payment_status !== 'approved') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment must be approved before generating receipt'
+                ], 400);
             }
 
             // Check if receipt already exists

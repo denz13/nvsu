@@ -124,6 +124,7 @@ Route::middleware('auth:web,students')->group(function() {
 
     Route::controller(ListPaymentRequestController::class)->group(function() {
         Route::get('listpaymentrequest', 'listPaymentRequest')->name('listpaymentrequest.list');
+        Route::post('listpaymentrequest/create-payment', 'createPayment')->name('listpaymentrequest.create-payment');
         Route::get('listpaymentrequest/{id}/details', 'getPaymentDetails')->name('listpaymentrequest.details');
         Route::post('listpaymentrequest/{id}/approve', 'approvePayment')->name('listpaymentrequest.approve');
         Route::post('listpaymentrequest/{id}/decline', 'declinePayment')->name('listpaymentrequest.decline');

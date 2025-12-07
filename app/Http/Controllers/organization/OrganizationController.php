@@ -5,13 +5,17 @@ namespace App\Http\Controllers\organization;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\organization;
+use App\Models\college;
+use App\Models\program;
 
 class OrganizationController extends Controller
 {
     public function addOrganization()
     {
         $organizations = organization::orderBy('created_at', 'desc')->paginate(10);
-        return view('organization.add-organization', compact('organizations'));
+        $colleges = college::orderBy('college_name', 'asc')->get(['id', 'college_name']);
+        $programs = program::orderBy('program_name', 'asc')->get(['id', 'program_name', 'college_id']);
+        return view('organization.add-organization', compact('organizations', 'colleges', 'programs'));
     }
     
     public function store(Request $request)
@@ -20,7 +24,9 @@ class OrganizationController extends Controller
             'organization_name' => 'required|string|max:255',
             'organization_description' => 'nullable|string',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'status' => 'required|in:active,inactive'
+            'status' => 'required|in:active,inactive',
+            'college_id' => 'nullable|exists:college,id',
+            'program_id' => 'nullable|exists:program,id'
         ]);
         
         try {
@@ -28,6 +34,8 @@ class OrganizationController extends Controller
             $organization->organization_name = $request->organization_name;
             $organization->organization_description = $request->organization_description;
             $organization->status = $request->status;
+            $organization->college_id = $request->college_id ?: null;
+            $organization->program_id = $request->program_id ?: null;
             
             if ($request->hasFile('photo')) {
                 $photo = $request->file('photo');
@@ -70,7 +78,9 @@ class OrganizationController extends Controller
             'organization_name' => 'required|string|max:255',
             'organization_description' => 'nullable|string',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'status' => 'required|in:active,inactive'
+            'status' => 'required|in:active,inactive',
+            'college_id' => 'nullable|exists:college,id',
+            'program_id' => 'nullable|exists:program,id'
         ]);
         
         try {
@@ -78,6 +88,8 @@ class OrganizationController extends Controller
             $organization->organization_name = $request->organization_name;
             $organization->organization_description = $request->organization_description;
             $organization->status = $request->status;
+            $organization->college_id = $request->college_id ?: null;
+            $organization->program_id = $request->program_id ?: null;
             
             if ($request->hasFile('photo')) {
                 if ($organization->photo && file_exists(public_path($organization->photo))) {

@@ -1,6 +1,51 @@
 // Organization Management JavaScript
 
+// Function to filter programs based on selected college
+function filterProgramsByCollege(collegeSelectId, programSelectId) {
+    const collegeSelect = document.getElementById(collegeSelectId);
+    const programSelect = document.getElementById(programSelectId);
+    
+    if (!collegeSelect || !programSelect) return;
+    
+    collegeSelect.addEventListener('change', function() {
+        const selectedCollegeId = this.value;
+        const programOptions = programSelect.querySelectorAll('option');
+        
+        // Show/hide programs based on selected college
+        programOptions.forEach(option => {
+            if (option.value === '') {
+                // Always show the placeholder option
+                option.style.display = '';
+            } else {
+                const programCollegeId = option.getAttribute('data-college-id');
+                if (selectedCollegeId === '' || programCollegeId === selectedCollegeId) {
+                    option.style.display = '';
+                } else {
+                    option.style.display = 'none';
+                }
+            }
+        });
+        
+        // Reset program selection if it's hidden
+        if (selectedCollegeId !== '') {
+            const selectedProgram = programSelect.value;
+            if (selectedProgram) {
+                const selectedOption = programSelect.querySelector(`option[value="${selectedProgram}"]`);
+                if (selectedOption && selectedOption.style.display === 'none') {
+                    programSelect.value = '';
+                }
+            }
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize college-program filtering for add form
+    filterProgramsByCollege('add-college', 'add-program');
+    
+    // Initialize college-program filtering for edit form
+    filterProgramsByCollege('edit-college', 'edit-program');
+    
     // Reset modal when "Add New Organization" button is clicked
     const addBtn = document.querySelector('[data-tw-target="#add-product-modal"]');
     if (addBtn) {
@@ -8,6 +53,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const saveBtn = document.getElementById('save-product-btn');
             saveBtn.innerHTML = '<i data-lucide="save" class="w-4 h-4 mr-2"></i> Save Organization';
             document.getElementById('add-product-form').reset();
+            // Reset program visibility
+            const programSelect = document.getElementById('add-program');
+            if (programSelect) {
+                const programOptions = programSelect.querySelectorAll('option');
+                programOptions.forEach(option => {
+                    option.style.display = option.value === '' ? '' : 'none';
+                });
+            }
         });
     }
     
@@ -127,6 +180,23 @@ window.editOrganization = function(organizationId) {
                         if (descriptionInput) {
                             descriptionInput.value = organization.organization_description || '';
                         }
+                        
+                        // Set college and program
+                        const collegeSelect = document.getElementById('edit-college');
+                        const programSelect = document.getElementById('edit-program');
+                        
+                        if (collegeSelect && organization.college_id) {
+                            collegeSelect.value = organization.college_id;
+                            // Trigger change event to filter programs
+                            collegeSelect.dispatchEvent(new Event('change'));
+                        }
+                        
+                        // Wait a bit for programs to be filtered, then set program
+                        setTimeout(() => {
+                            if (programSelect && organization.program_id) {
+                                programSelect.value = organization.program_id;
+                            }
+                        }, 100);
                         
                         // Set radio button based on status
                         if (organization.status === 'active') {

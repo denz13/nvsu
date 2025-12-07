@@ -12,5 +12,5 @@ class organization extends Model
 
     protected $table = 'organization';
     protected $primaryKey = 'id';
-    protected $fillable = ['organization_name','organization_description','photo', 'status'];
+    protected $fillable = ['organization_name','organization_description','photo', 'status','program_id','college_id'];
 }

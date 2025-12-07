@@ -265,11 +265,35 @@ document.addEventListener('DOMContentLoaded', function() {
             deviceScanner.focus();
             debugLog('✓ Page loaded - Scanner auto-focused');
             
-            // Show ready status
+            // Show ready status with digital clock
             const searchResults = document.getElementById('search-results');
             if (searchResults) {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                const timeString = `${hours}:${minutes}:${seconds}`;
+                
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                const dayName = days[now.getDay()];
+                const monthName = months[now.getMonth()];
+                const day = now.getDate();
+                const year = now.getFullYear();
+                const dateString = `${dayName}, ${monthName} ${day}, ${year}`;
+                
                 searchResults.innerHTML = `
                     <div class="col-span-12 text-center py-12">
+                        <!-- Large Digital Clock Display -->
+                        <div class="bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl p-12 mb-6 border border-primary/30 shadow-lg">
+                            <div class="text-slate-500 text-base mb-4 font-medium">Current Time</div>
+                            <div id="main-digital-clock" class="text-8xl font-bold text-primary font-mono tracking-wider mb-4">
+                                ${timeString}
+                            </div>
+                            <div id="main-digital-date" class="text-slate-600 text-2xl font-medium">
+                                ${dateString}
+                            </div>
+                        </div>
                         <div class="inline-flex items-center px-4 py-2 bg-green-100 text-green-800 rounded-lg mb-4">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
                                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -277,10 +301,29 @@ document.addEventListener('DOMContentLoaded', function() {
                             </svg>
                             <span class="font-medium">Scanner Ready - Try typing or scanning now!</span>
                         </div>
-                        <p class="text-slate-500">Check browser console (F12) for debug logs</p>
-                        <p class="text-slate-400 text-xs mt-2">Or check the debug panel below the scanner input</p>
                     </div>
                 `;
+                
+                // Update main clock every second
+                setInterval(function() {
+                    const mainClock = document.getElementById('main-digital-clock');
+                    const mainDate = document.getElementById('main-digital-date');
+                    if (mainClock && mainDate) {
+                        const now = new Date();
+                        const hours = String(now.getHours()).padStart(2, '0');
+                        const minutes = String(now.getMinutes()).padStart(2, '0');
+                        const seconds = String(now.getSeconds()).padStart(2, '0');
+                        mainClock.textContent = `${hours}:${minutes}:${seconds}`;
+                        
+                        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                        const dayName = days[now.getDay()];
+                        const monthName = months[now.getMonth()];
+                        const day = now.getDate();
+                        const year = now.getFullYear();
+                        mainDate.textContent = `${dayName}, ${monthName} ${day}, ${year}`;
+                    }
+                }, 1000);
             }
         } else {
             debugLog('✗ ERROR: deviceScanner not found on page load');
