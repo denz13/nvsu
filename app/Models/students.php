@@ -8,10 +8,11 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use App\Models\college;
 use App\Models\program;
 use App\Models\organization;
+use App\Traits\LogsActivity;
 
 class students extends Authenticatable
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, LogsActivity;
 
     protected $table = 'students';
     protected $primaryKey = 'id';

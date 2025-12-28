@@ -97,10 +97,13 @@
                                 <circle cx="12" cy="12" r="3"></circle>
                             </svg>
                         </a>
+                        @endif
                         @if($payment['payment_status'] === 'pending')
                         <a class="flex items-center text-success approve-payment-btn" 
                            href="javascript:;" 
-                           data-payment-id="{{ $payment['id'] }}"
+                           data-payment-id="{{ $payment['id'] ?? '' }}"
+                           data-student-id="{{ $payment['student_id'] }}"
+                           data-event-id="{{ $payment['event_id'] }}"
                            title="Approve">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-circle w-4 h-4">
                                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -109,7 +112,9 @@
                         </a>
                         <a class="flex items-center text-danger decline-payment-btn" 
                            href="javascript:;" 
-                           data-payment-id="{{ $payment['id'] }}"
+                           data-payment-id="{{ $payment['id'] ?? '' }}"
+                           data-student-id="{{ $payment['student_id'] }}"
+                           data-event-id="{{ $payment['event_id'] }}"
                            title="Decline">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x-circle w-4 h-4">
                                 <circle cx="12" cy="12" r="10"></circle>
@@ -118,6 +123,7 @@
                             </svg>
                         </a>
                         @endif
+                        @if($payment['id'])
                         <a class="flex items-center text-primary add-waiver-btn" 
                            href="javascript:;" 
                            data-payment-id="{{ $payment['id'] }}"
@@ -130,26 +136,16 @@
                                 <polyline points="10 9 9 9 8 9"></polyline>
                             </svg>
                         </a>
-                        @if($payment['payment_status'] === 'approved')
-                        <a class="flex items-center text-success generate-receipt-btn" 
-                           href="javascript:;" 
-                           data-payment-id="{{ $payment['id'] }}"
-                           title="Generate Receipt">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-receipt w-4 h-4">
-                                <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"></path>
-                                <path d="M14 8H8"></path>
-                                <path d="M16 12H8"></path>
-                                <path d="M13 16H8"></path>
-                            </svg>
-                        </a>
                         @endif
-                        @else
-                        {{-- No payment record yet - allow generating receipt directly --}}
                         <a class="flex items-center text-success generate-receipt-btn" 
                            href="javascript:;" 
+                           @if($payment['id'])
+                           data-payment-id="{{ $payment['id'] }}"
+                           @else
                            data-student-id="{{ $payment['student_id'] }}"
                            data-event-id="{{ $payment['event_id'] }}"
                            data-payment-id=""
+                           @endif
                            title="Generate Receipt">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-receipt w-4 h-4">
                                 <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"></path>
@@ -158,7 +154,6 @@
                                 <path d="M13 16H8"></path>
                             </svg>
                         </a>
-                        @endif
                     </div>
                 </td>
             </tr>

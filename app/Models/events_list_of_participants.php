@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\events_assign_participants;
 use App\Models\students;
+use App\Traits\LogsActivity;
 
 class events_list_of_participants extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, LogsActivity;
 
     protected $table = 'events_list_of_participants';
     protected $primaryKey = 'id';

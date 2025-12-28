@@ -8,10 +8,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\students;
 use App\Models\events;
 use App\Models\User;
+use App\Traits\LogsActivity;
 
 class tbl_attendance extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, LogsActivity;
 
     protected $table = 'tbl_attendance';
     protected $primaryKey = 'id';

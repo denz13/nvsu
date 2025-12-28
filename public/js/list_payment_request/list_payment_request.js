@@ -45,8 +45,14 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             const btn = e.target.closest('.approve-payment-btn');
             const paymentId = btn.getAttribute('data-payment-id');
+            const studentId = btn.getAttribute('data-student-id');
+            const eventId = btn.getAttribute('data-event-id');
+            
             if (paymentId) {
                 approvePayment(paymentId);
+            } else if (studentId && eventId) {
+                // Create payment record first, then approve
+                createPaymentAndApprove(studentId, eventId);
             }
         }
         
@@ -55,8 +61,14 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             const btn = e.target.closest('.decline-payment-btn');
             const paymentId = btn.getAttribute('data-payment-id');
+            const studentId = btn.getAttribute('data-student-id');
+            const eventId = btn.getAttribute('data-event-id');
+            
             if (paymentId) {
                 declinePayment(paymentId);
+            } else if (studentId && eventId) {
+                // Create payment record first, then decline
+                createPaymentAndDecline(studentId, eventId);
             }
         }
         
@@ -572,6 +584,64 @@ function createPaymentAndGenerateReceipt(studentId, eventId) {
         if (data.success && data.payment_id) {
             // Now generate receipt with the new payment ID
             generateReceipt(data.payment_id);
+        } else {
+            showListPaymentRequestToast(data.message || 'Failed to create payment record', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showListPaymentRequestToast('An error occurred while creating payment record', 'error');
+    });
+}
+
+// Create payment record and approve
+function createPaymentAndApprove(studentId, eventId) {
+    fetch(`/listpaymentrequest/create-payment`, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            student_id: studentId,
+            event_id: eventId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.payment_id) {
+            // Now approve the payment
+            approvePayment(data.payment_id);
+        } else {
+            showListPaymentRequestToast(data.message || 'Failed to create payment record', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showListPaymentRequestToast('An error occurred while creating payment record', 'error');
+    });
+}
+
+// Create payment record and decline
+function createPaymentAndDecline(studentId, eventId) {
+    fetch(`/listpaymentrequest/create-payment`, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            student_id: studentId,
+            event_id: eventId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.payment_id) {
+            // Now decline the payment
+            declinePayment(data.payment_id);
         } else {
             showListPaymentRequestToast(data.message || 'Failed to create payment record', 'error');
         }

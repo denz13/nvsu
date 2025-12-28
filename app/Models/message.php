@@ -7,9 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\User;
 use App\Models\students;
+use App\Traits\LogsActivity;
+
 class message extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, LogsActivity;
     protected $table = 'message';
     protected $primaryKey = 'id';
     protected $fillable = ['from_id', 'message_content', 'to_id', 'status'];

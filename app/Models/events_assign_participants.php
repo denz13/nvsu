@@ -10,10 +10,11 @@ use App\Models\college;
 use App\Models\program;
 use App\Models\organization;
 use App\Models\semester;
+use App\Traits\LogsActivity;
 
 class events_assign_participants extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, LogsActivity;
 
     protected $table = 'events_assign_participants';
     protected $primaryKey = 'id';

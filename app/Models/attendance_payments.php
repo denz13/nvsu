@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\students;
 use App\Models\events;
+use App\Traits\LogsActivity;
 
 class attendance_payments extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, LogsActivity;
 
     protected $table = 'attendance_payments';
     protected $primaryKey = 'id';

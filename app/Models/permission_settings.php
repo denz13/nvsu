@@ -7,9 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\User;
 use App\Models\students;
+use App\Traits\LogsActivity;
+
 class permission_settings extends Model
 {
-    use HasFactory,SoftDeletes;
+    use HasFactory, SoftDeletes, LogsActivity;
 
     protected $table = 'permission_settings';
     protected $primaryKey = 'id';
