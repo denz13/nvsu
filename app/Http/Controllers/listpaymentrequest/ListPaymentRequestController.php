@@ -10,13 +10,19 @@ use App\Models\generated_receipt;
 use App\Models\tbl_attendance;
 use App\Models\students;
 use App\Models\events;
+use App\Models\permission_settings;
+use App\Models\permission_settings_list;
 
 class ListPaymentRequestController extends Controller
 {
     public function listPaymentRequest()
     {
-        // Get all payments that have time schedules
-        $paymentsWithSchedules = attendance_payments::with([
+        // Get current logged-in user or student
+        $currentUser = auth('web')->user();
+        $currentStudent = auth('students')->user();
+        
+        // Build query for payments that have time schedules
+        $paymentsQuery = attendance_payments::with([
             'students.college',
             'students.program',
             'students.organization',
@@ -25,8 +31,129 @@ class ListPaymentRequestController extends Controller
             ->whereHas('timeSchedules', function($query) {
                 $query->where('status', 'active');
             })
-            ->where('status', 'active')
-            ->get();
+            ->where('status', 'active');
+        
+        // Filter logic based on who is logged in
+        if ($currentStudent) {
+            // If logged in as student, check if they have permission settings
+            $permissionSetting = permission_settings::where('students_id', $currentStudent->id)
+                ->whereNull('users_id')
+                ->where('status', 'active')
+                ->first();
+            
+            if ($permissionSetting) {
+                // Check if they have modules assigned (permission_settings_list)
+                $hasModules = permission_settings_list::where('permission_settings_id', $permissionSetting->id)
+                    ->where('status', 'active')
+                    ->exists();
+                
+                if ($hasModules) {
+                    // Student has permissions - filter by their college_id, program_id, or organization_id
+                    $studentCollegeId = $currentStudent->college_id;
+                    $studentProgramId = $currentStudent->program_id;
+                    $studentOrganizationId = $currentStudent->organization_id;
+                    
+                    // Filter payments to only show students with same college, program, AND organization
+                    $paymentsQuery->whereHas('students', function($query) use ($studentCollegeId, $studentProgramId, $studentOrganizationId) {
+                        if ($studentCollegeId) {
+                            $query->where('college_id', $studentCollegeId);
+                        }
+                        
+                        if ($studentProgramId) {
+                            $query->where('program_id', $studentProgramId);
+                        }
+                        
+                        if ($studentOrganizationId) {
+                            $query->where('organization_id', $studentOrganizationId);
+                        }
+                        
+                        // If no conditions at all, show nothing
+                        if (!$studentCollegeId && !$studentProgramId && !$studentOrganizationId) {
+                            $query->whereRaw('1 = 0');
+                        }
+                    });
+                    
+                } else {
+                    // Student has permission setting but no modules - show nothing
+                    $paymentsQuery->whereRaw('1 = 0');
+                }
+            } else {
+                // Student has no permission settings - show nothing
+                $paymentsQuery->whereRaw('1 = 0');
+            }
+        } elseif ($currentUser) {
+            // If logged in as user, check their permission settings
+            $permissionSetting = permission_settings::where('users_id', $currentUser->id)
+                ->whereNull('students_id')
+                ->where('status', 'active')
+                ->first();
+            
+            if ($permissionSetting) {
+                // Check if they have modules assigned (permission_settings_list)
+                $hasModules = permission_settings_list::where('permission_settings_id', $permissionSetting->id)
+                    ->where('status', 'active')
+                    ->exists();
+                
+                if ($hasModules) {
+                    // User has permissions - get students from permission settings that have students_id
+                    // These are the students the user has access to
+                    $permissionStudents = permission_settings::where('users_id', $currentUser->id)
+                        ->whereNotNull('students_id')
+                        ->where('status', 'active')
+                        ->pluck('students_id')
+                        ->toArray();
+                    
+                    if (!empty($permissionStudents)) {
+                        // Get students from permission settings
+                        $allowedStudents = students::whereIn('id', $permissionStudents)
+                            ->where('status', 'active')
+                            ->get();
+                        
+                        if ($allowedStudents->isNotEmpty()) {
+                            // Collect unique college_id, program_id, organization_id from allowed students
+                            $allowedCollegeIds = $allowedStudents->pluck('college_id')->filter()->unique()->values()->toArray();
+                            $allowedProgramIds = $allowedStudents->pluck('program_id')->filter()->unique()->values()->toArray();
+                            $allowedOrganizationIds = $allowedStudents->pluck('organization_id')->filter()->unique()->values()->toArray();
+                            
+                            // Filter payments to only show students matching the permission settings
+                            // Match by college_id AND program_id AND organization_id
+                            if (!empty($allowedCollegeIds) || !empty($allowedProgramIds) || !empty($allowedOrganizationIds)) {
+                                $paymentsQuery->whereHas('students', function($query) use ($allowedCollegeIds, $allowedProgramIds, $allowedOrganizationIds) {
+                                    if (!empty($allowedCollegeIds)) {
+                                        $query->whereIn('college_id', $allowedCollegeIds);
+                                    }
+                                    
+                                    if (!empty($allowedProgramIds)) {
+                                        $query->whereIn('program_id', $allowedProgramIds);
+                                    }
+                                    
+                                    if (!empty($allowedOrganizationIds)) {
+                                        $query->whereIn('organization_id', $allowedOrganizationIds);
+                                    }
+                                });
+                            } else {
+                                // If no valid IDs found, return empty result
+                                $paymentsQuery->whereRaw('1 = 0');
+                            }
+                        } else {
+                            // No valid students found - show nothing
+                            $paymentsQuery->whereRaw('1 = 0');
+                        }
+                    } else {
+                        // User has permission setting with modules but no students assigned - show nothing
+                        $paymentsQuery->whereRaw('1 = 0');
+                    }
+                } else {
+                    // User has permission setting but no modules - show all (no filtering)
+                    // No additional filtering needed
+                }
+            } else {
+                // User has no permission settings - show all payment requests (no filtering)
+                // No additional filtering needed
+            }
+        }
+        
+        $paymentsWithSchedules = $paymentsQuery->get();
 
         // Build formatted payments array
         $formattedPayments = [];
