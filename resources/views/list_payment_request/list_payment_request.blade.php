@@ -271,6 +271,42 @@
 ])
 <!-- END: Confirmation Modal -->
 
+<!-- BEGIN: Approval Modal -->
+@include('components.modal', [
+'modalId' => 'approval-modal',
+'size' => 'md',
+'title' => 'Approve Payment',
+'body' => '
+<form id="approval-form">
+    <input type="hidden" id="approval-payment-id" name="payment_id" />
+    <input type="hidden" id="approval-amount-paid" name="amount_paid" />
+    <div class="grid grid-cols-1 gap-4">
+        <div>
+            <label class="form-label">Payment Category <span class="text-danger">*</span></label>
+            <select class="form-control" id="approval-category" name="category" required>
+                <option value="">Select Category</option>
+                <option value="cash">Cash</option>
+                <option value="gcash">GCash</option>
+            </select>
+        </div>
+        <div id="ref-number-container" class="hidden">
+            <label class="form-label">Reference Number <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="approval-ref-number" name="ref_number" placeholder="Enter GCash reference number">
+            <div class="text-xs text-slate-500 mt-1">Enter the GCash transaction reference number</div>
+        </div>
+    </div>
+</form>
+',
+'footer' => '
+<button type="button" class="btn btn-secondary" data-tw-dismiss="modal">Cancel</button>
+<button type="button" class="btn btn-primary" id="confirm-approval-btn">
+    <i data-lucide="check" class="w-4 h-4 mr-2"></i> Approve Payment
+</button>
+',
+'showButton' => false
+])
+<!-- END: Approval Modal -->
+
 <!-- BEGIN: Receipt Modal -->
 <div id="receipt-modal" class="modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl">

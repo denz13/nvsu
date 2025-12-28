@@ -15,140 +15,80 @@ class ListPaymentRequestController extends Controller
 {
     public function listPaymentRequest()
     {
-        // Get all unique student-event combinations from attendance records
-        $attendanceRecords = tbl_attendance::with(['student.college', 'student.program', 'event'])
-            ->where('status', 'active')
-            ->select('student_id', 'event_id')
-            ->distinct()
-            ->get();
-
-        // Get all existing payment requests
-        $existingPayments = attendance_payments::with([
+        // Get all payments that have time schedules
+        $paymentsWithSchedules = attendance_payments::with([
             'students.college',
             'students.program',
             'students.organization',
             'events'
         ])
+            ->whereHas('timeSchedules', function($query) {
+                $query->where('status', 'active');
+            })
             ->where('status', 'active')
-            ->get()
-            ->keyBy(function($payment) {
-                return $payment->students_id . '_' . $payment->events_id;
-            });
+            ->get();
 
         // Build formatted payments array
         $formattedPayments = [];
-        $studentEventMap = [];
 
-        // Group attendance records by student-event combination
-        foreach ($attendanceRecords as $attendance) {
-            // Skip if student or event relationship is missing
-            if (!$attendance->student_id || !$attendance->event_id || !$attendance->student || !$attendance->event) {
+        // Process each payment that has time schedules
+        foreach ($paymentsWithSchedules as $payment) {
+            $student = $payment->students;
+            $event = $payment->events;
+            
+            // Skip if student or event is missing
+            if (!$student || !$event) {
                 continue;
             }
             
-            $key = $attendance->student_id . '_' . $attendance->event_id;
-            
-            if (!isset($studentEventMap[$key])) {
-                $studentEventMap[$key] = [
-                    'student_id' => $attendance->student_id,
-                    'event_id' => $attendance->event_id,
-                    'student' => $attendance->student,
-                    'event' => $attendance->event,
-                ];
+            // Get time schedules for this payment
+            $timeSchedules = attendance_payments_time_schedule::where('attendance_payments_id', $payment->id)
+                ->where('status', 'active')
+                ->orderBy('log_time', 'asc')
+                ->get();
+
+            // Skip if no time schedules (shouldn't happen due to whereHas, but just in case)
+            if ($timeSchedules->isEmpty()) {
+                continue;
             }
-        }
 
-        // Process each student-event combination
-        foreach ($studentEventMap as $key => $data) {
-            $student = $data['student'];
-            $event = $data['event'];
+            // Count time in (workstate = 0) and time out (workstate = 1)
+            // Handle workstate as string ("0" or "1") or integer (0 or 1)
+            $timeInCount = $timeSchedules->filter(function($schedule) {
+                $ws = $schedule->workstate;
+                return $ws === "0" || $ws === 0 || $ws === "time_in";
+            })->count();
             
-            // Check if payment exists
-            $payment = $existingPayments->get($key);
-            
-            if ($payment) {
-                // Get time schedules for this payment
-                $timeSchedules = attendance_payments_time_schedule::where('attendance_payments_id', $payment->id)
-                    ->where('status', 'active')
-                    ->orderBy('log_time', 'asc')
-                    ->get();
+            $timeOutCount = $timeSchedules->filter(function($schedule) {
+                $ws = $schedule->workstate;
+                return $ws === "1" || $ws === 1 || $ws === "time_out";
+            })->count();
 
-                // Count time in (workstate = 0) and time out (workstate = 1)
-                // Handle workstate as string ("0" or "1") or integer (0 or 1)
-                $timeInCount = $timeSchedules->filter(function($schedule) {
-                    $ws = $schedule->workstate;
-                    return $ws === "0" || $ws === 0 || $ws === "time_in";
-                })->count();
-                
-                $timeOutCount = $timeSchedules->filter(function($schedule) {
-                    $ws = $schedule->workstate;
-                    return $ws === "1" || $ws === 1 || $ws === "time_out";
-                })->count();
+            // Format schedule periods
+            $schedulePeriods = $timeSchedules->pluck('type_of_schedule_pay')->unique()->values()->toArray();
+            $schedulePeriodsText = implode(', ', array_map(function($period) {
+                return ucfirst(str_replace('_', ' ', $period));
+            }, $schedulePeriods));
 
-                // Format schedule periods
-                $schedulePeriods = $timeSchedules->pluck('type_of_schedule_pay')->unique()->values()->toArray();
-                $schedulePeriodsText = implode(', ', array_map(function($period) {
-                    return ucfirst(str_replace('_', ' ', $period));
-                }, $schedulePeriods));
-
-                $formattedPayments[] = [
-                    'id' => $payment->id,
-                    'student_id' => $payment->students_id,
-                    'student_name' => $student ? $student->student_name : 'N/A',
-                    'student_id_number' => $student ? $student->id_number : 'N/A',
-                    'student_photo' => $student ? $student->photo : null,
-                    'college' => $student && $student->college ? $student->college->college_name : 'N/A',
-                    'program' => $student && $student->program ? $student->program->program_name : 'N/A',
-                    'event_id' => $payment->events_id,
-                    'event_name' => $event ? $event->event_name : 'N/A',
-                    'amount_paid' => $payment->amount_paid ?? 0,
-                    'payment_status' => $payment->payment_status ?? 'pending',
-                    'schedule_periods' => $schedulePeriodsText ?: 'N/A',
-                    'time_in_count' => $timeInCount,
-                    'time_out_count' => $timeOutCount,
-                    'total_schedules' => $timeSchedules->count(),
-                    'created_at' => $payment->created_at,
-                    'time_schedules' => $timeSchedules,
-                ];
-            } else {
-                // No payment record exists - create placeholder entry
-                // Get attendance records for this student-event to count time in/out
-                $studentAttendances = tbl_attendance::where('student_id', $data['student_id'])
-                    ->where('event_id', $data['event_id'])
-                    ->where('status', 'active')
-                    ->get();
-
-                // Handle workstate as string ("0" or "1") or integer (0 or 1)
-                $timeInCount = $studentAttendances->filter(function($att) {
-                    $ws = $att->workstate;
-                    return $ws === "0" || $ws === 0 || $ws === "time_in";
-                })->count();
-                
-                $timeOutCount = $studentAttendances->filter(function($att) {
-                    $ws = $att->workstate;
-                    return $ws === "1" || $ws === 1 || $ws === "time_out";
-                })->count();
-
-                $formattedPayments[] = [
-                    'id' => null, // No payment record yet
-                    'student_id' => $data['student_id'],
-                    'student_name' => $student ? $student->student_name : 'N/A',
-                    'student_id_number' => $student ? $student->id_number : 'N/A',
-                    'student_photo' => $student ? $student->photo : null,
-                    'college' => $student && $student->college ? $student->college->college_name : 'N/A',
-                    'program' => $student && $student->program ? $student->program->program_name : 'N/A',
-                    'event_id' => $data['event_id'],
-                    'event_name' => $event ? $event->event_name : 'N/A',
-                    'amount_paid' => 0, // No fines yet
-                    'payment_status' => 'pending',
-                    'schedule_periods' => 'N/A',
-                    'time_in_count' => $timeInCount,
-                    'time_out_count' => $timeOutCount,
-                    'total_schedules' => $studentAttendances->count(),
-                    'created_at' => $studentAttendances->min('created_at') ?? now(),
-                    'time_schedules' => collect([]),
-                ];
-            }
+            $formattedPayments[] = [
+                'id' => $payment->id,
+                'student_id' => $payment->students_id,
+                'student_name' => $student ? $student->student_name : 'N/A',
+                'student_id_number' => $student ? $student->id_number : 'N/A',
+                'student_photo' => $student ? $student->photo : null,
+                'college' => $student && $student->college ? $student->college->college_name : 'N/A',
+                'program' => $student && $student->program ? $student->program->program_name : 'N/A',
+                'event_id' => $payment->events_id,
+                'event_name' => $event ? $event->event_name : 'N/A',
+                'amount_paid' => $payment->amount_paid ?? 0,
+                'payment_status' => $payment->payment_status ?? 'pending',
+                'schedule_periods' => $schedulePeriodsText ?: 'N/A',
+                'time_in_count' => $timeInCount,
+                'time_out_count' => $timeOutCount,
+                'total_schedules' => $timeSchedules->count(),
+                'created_at' => $payment->created_at,
+                'time_schedules' => $timeSchedules,
+            ];
         }
 
         // Sort by created_at descending
@@ -224,6 +164,8 @@ class ListPaymentRequestController extends Controller
                     'waiver_reason' => $payment->waiver_reason ?? null,
                     'original_amount' => $originalAmount,
                     'payment_status' => $payment->payment_status ?? 'pending',
+                    'category' => $payment->category ?? null,
+                    'ref_number' => $payment->ref_number ?? null,
                     'created_at' => $payment->created_at ? $payment->created_at->format('M d, Y h:i A') : null,
                 ],
                 'student' => [
@@ -257,6 +199,12 @@ class ListPaymentRequestController extends Controller
     public function approvePayment(Request $request, $id)
     {
         try {
+            $request->validate([
+                'amount_paid' => 'nullable|numeric|min:0',
+                'category' => 'required|in:cash,gcash',
+                'ref_number' => 'required_if:category,gcash|nullable|string|max:255'
+            ]);
+
             $payment = attendance_payments::where('id', $id)
                 ->where('status', 'active')
                 ->first();
@@ -268,6 +216,22 @@ class ListPaymentRequestController extends Controller
                 ], 404);
             }
 
+            // Update amount_paid if provided
+            if ($request->has('amount_paid') && $request->amount_paid !== null) {
+                $payment->amount_paid = $request->amount_paid;
+            }
+
+            // Update category
+            $payment->category = $request->category;
+
+            // Update ref_number if category is gcash
+            if ($request->category === 'gcash') {
+                $payment->ref_number = $request->ref_number;
+            } else {
+                // Clear ref_number if category is cash
+                $payment->ref_number = null;
+            }
+
             $payment->payment_status = 'approved';
             $payment->save();
 
@@ -275,6 +239,12 @@ class ListPaymentRequestController extends Controller
                 'success' => true,
                 'message' => 'Payment request approved successfully'
             ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -375,12 +345,52 @@ class ListPaymentRequestController extends Controller
         }
     }
 
+    public function updatePaymentAmount(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'amount_paid' => 'required|numeric|min:0'
+            ]);
+
+            $payment = attendance_payments::where('id', $id)
+                ->where('status', 'active')
+                ->first();
+
+            if (!$payment) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment request not found'
+                ], 404);
+            }
+
+            $payment->amount_paid = $request->amount_paid;
+            $payment->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment amount updated successfully'
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update payment amount: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function createPayment(Request $request)
     {
         try {
             $request->validate([
                 'student_id' => 'required',
-                'event_id' => 'required'
+                'event_id' => 'required',
+                'amount_paid' => 'nullable|numeric|min:0'
             ]);
 
             // Check if payment already exists
@@ -397,12 +407,13 @@ class ListPaymentRequestController extends Controller
                 ]);
             }
 
-            // Create new payment record with 0 amount (no fines)
+            // Create new payment record
+            $amountPaid = $request->amount_paid ?? 0;
             $payment = attendance_payments::create([
                 'students_id' => $request->student_id,
                 'events_id' => $request->event_id,
-                'amount_paid' => 0,
-                'payment_status' => 'approved', // Auto-approve 0 amount payments so receipt can be generated
+                'amount_paid' => $amountPaid,
+                'payment_status' => $amountPaid > 0 ? 'pending' : 'approved', // Auto-approve 0 amount payments
                 'status' => 'active'
             ]);
 
@@ -492,6 +503,8 @@ class ListPaymentRequestController extends Controller
                         'waiver_amount' => $payment->waiver_amount ?? 0,
                         'original_amount' => $originalAmount,
                         'waiver_reason' => $payment->waiver_reason ?? null,
+                        'category' => $payment->category ?? null,
+                        'ref_number' => $payment->ref_number ?? null,
                     ],
                     'student' => [
                         'student_name' => $student ? $student->student_name : 'N/A',

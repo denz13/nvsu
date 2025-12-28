@@ -128,6 +128,7 @@ Route::middleware('auth:web,students')->group(function() {
         Route::get('listpaymentrequest/{id}/details', 'getPaymentDetails')->name('listpaymentrequest.details');
         Route::post('listpaymentrequest/{id}/approve', 'approvePayment')->name('listpaymentrequest.approve');
         Route::post('listpaymentrequest/{id}/decline', 'declinePayment')->name('listpaymentrequest.decline');
+        Route::post('listpaymentrequest/{id}/update-amount', 'updatePaymentAmount')->name('listpaymentrequest.update-amount');
         Route::post('listpaymentrequest/{id}/waiver', 'addWaiver')->name('listpaymentrequest.waiver');
         Route::post('listpaymentrequest/{id}/generate-receipt', 'generateReceipt')->name('listpaymentrequest.generate-receipt');
     });

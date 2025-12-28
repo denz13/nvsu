@@ -653,7 +653,7 @@ function loadMyAttendance(page = 1, perPage = 10) {
     })
     .catch(err => {
         console.error(err);
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-slate-500">Failed to load records.</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="text-center py-8 text-slate-500">Failed to load records.</td></tr>';
         if (pagDiv) pagDiv.classList.add('hidden');
     });
 }
@@ -662,7 +662,7 @@ function renderMyAttendanceRows(items) {
     const tbody = document.getElementById('attendanceTableBody');
     if (!tbody) return;
     if (!items.length) {
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-8 text-slate-500">No attendance records.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center py-8 text-slate-500">No attendance records.</td></tr>';
         return;
     }
     const defaultPhoto = '/dist/images/preview-7.jpg';
@@ -715,6 +715,29 @@ function renderMyAttendanceRows(items) {
             <td class="text-center">${timeOut}</td>
             <td class="text-center">
                 ${a.status === 'Absent' ? '<span class="text-danger font-medium">Absent</span>' : '<span class="text-success font-medium">Present</span>'}
+            </td>
+            <td class="text-center">
+                ${(() => {
+                    const paymentStatus = a.payment_status || null;
+                    let paymentStatusBadge = 'bg-slate-500';
+                    let paymentStatusText = 'No Payment';
+                    
+                    if (paymentStatus === 'pending') {
+                        paymentStatusBadge = 'bg-warning';
+                        paymentStatusText = 'Pending';
+                    } else if (paymentStatus === 'approved') {
+                        paymentStatusBadge = 'bg-primary';
+                        paymentStatusText = 'Approved';
+                    } else if (paymentStatus === 'paid') {
+                        paymentStatusBadge = 'bg-success';
+                        paymentStatusText = 'Paid';
+                    } else if (paymentStatus === 'declined') {
+                        paymentStatusBadge = 'bg-danger';
+                        paymentStatusText = 'Declined';
+                    }
+                    
+                    return `<span class="px-2 py-1 text-xs rounded-full ${paymentStatusBadge} text-white">${paymentStatusText}</span>`;
+                })()}
             </td>
             <td class="text-center">
                 <span class="text-slate-600">₱${(a.absence_fine || 0).toFixed(2)}</span>
@@ -948,6 +971,28 @@ function displayReceipt(data) {
                     ${waiverAmount > 0 ? `<div class="mt-1 text-xs text-slate-400">After waiver</div>` : ''}
                 </div>
             </div>
+            ${payment.category ? `
+            <div class="px-5 sm:px-20 pb-10 sm:pb-20 border-t border-slate-200/60 dark:border-darkmode-400">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <div class="text-base text-slate-500">Payment Method</div>
+                        <div class="text-lg font-medium mt-2">
+                            <span class="px-3 py-1 text-sm rounded-full ${
+                                payment.category === 'gcash' ? 'bg-primary' : 'bg-slate-500'
+                            } text-white">
+                                ${payment.category.toUpperCase()}
+                            </span>
+                        </div>
+                    </div>
+                    ${payment.ref_number ? `
+                    <div>
+                        <div class="text-base text-slate-500">Reference Number</div>
+                        <div class="text-lg font-medium mt-2">${payment.ref_number}</div>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+            ` : ''}
         </div>
     `;
 

@@ -43,17 +43,65 @@ class AuthController extends Controller
         // Fallback: try students guard using id_number as login field
         // UI uses 'email' input; accept id_number there
         $student = students::where('id_number', $request->email)->first();
+        
+        if (!$student) {
+            // Student not found
+            return response()->json([
+                'message' => 'Wrong email or password.'
+            ], 422);
+        }
+        
+        // Try using Laravel's built-in attempt method first (for hashed passwords)
+        $credentials = [
+            'id_number' => $request->email,
+            'password' => $request->password
+        ];
+        
+        if (Auth::guard('students')->attempt($credentials)) {
+            $request->session()->regenerate();
+            if (config('app.debug') && $request->boolean('debug')) {
+                dd(['guard' => 'students', 'user' => Auth::guard('students')->user()]);
+            }
+            return response()->json(['success' => true, 'redirect' => url('/')]);
+        }
+        
+        // Fallback: Manual check for plain text passwords or edge cases
+        
         if ($student) {
-            $pw = (string)($request->password ?? '');
-            $stored = (string)($student->password ?? '');
-            $isValid = Hash::check($pw, $stored) || $stored === $pw;
-            if ($isValid) {
-                Auth::guard('students')->login($student);
-                $request->session()->regenerate();
-                if (config('app.debug') && $request->boolean('debug')) {
-                    dd(['guard' => 'students', 'user' => Auth::guard('students')->user()]);
+            $pw = trim((string)($request->password ?? ''));
+            
+            // Try to get password using multiple methods
+            $stored = $student->getAuthPassword();
+            if (empty($stored)) {
+                // Fallback: try accessing password attribute directly
+                $stored = $student->attributes['password'] ?? $student->password ?? null;
+            }
+            
+            if (!empty($stored)) {
+                $stored = trim((string)$stored);
+                
+                // Check if password is hashed (bcrypt format - always 60 chars)
+                $isHashed = (strlen($stored) === 60 && 
+                            (str_starts_with($stored, '$2y$') || 
+                             str_starts_with($stored, '$2a$') || 
+                             str_starts_with($stored, '$2b$')));
+                
+                if ($isHashed) {
+                    // Password is hashed, use Hash::check
+                    $isValid = Hash::check($pw, $stored);
+                } else {
+                    // Password is plain text, do direct comparison (case-sensitive)
+                    $isValid = ($stored === $pw);
                 }
-                return response()->json(['success' => true, 'redirect' => url('/')]);
+                
+                if ($isValid) {
+                    Auth::guard('students')->login($student);
+                    $request->session()->regenerate();
+                    if (config('app.debug') && $request->boolean('debug')) {
+                        dd(['guard' => 'students', 'user' => Auth::guard('students')->user()]);
+                    }
+                    return response()->json(['success' => true, 'redirect' => url('/')]);
+                }
             }
         }
 

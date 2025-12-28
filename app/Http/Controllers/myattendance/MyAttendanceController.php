@@ -1955,6 +1955,8 @@ class MyAttendanceController extends Controller
                     'waiver_amount' => $payment->waiver_amount ?? 0,
                     'original_amount' => $originalAmount,
                     'waiver_reason' => $payment->waiver_reason ?? null,
+                    'category' => $payment->category ?? null,
+                    'ref_number' => $payment->ref_number ?? null,
                 ],
                 'student' => [
                     'student_name' => $student ? $student->student_name : 'N/A',

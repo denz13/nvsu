@@ -48,11 +48,32 @@ document.addEventListener('DOMContentLoaded', function() {
             const studentId = btn.getAttribute('data-student-id');
             const eventId = btn.getAttribute('data-event-id');
             
+            // Check if modal is open and get amount from input
+            const amountInput = document.getElementById('payment-amount-input');
+            const amountPaid = amountInput ? parseFloat(amountInput.value) : null;
+            
             if (paymentId) {
-                approvePayment(paymentId);
+                approvePayment(paymentId, amountPaid);
             } else if (studentId && eventId) {
                 // Create payment record first, then approve
-                createPaymentAndApprove(studentId, eventId);
+                createPaymentAndApprove(studentId, eventId, amountPaid);
+            }
+        }
+        
+        // Handle Update Amount button clicks
+        if (e.target.closest('#update-amount-btn')) {
+            e.preventDefault();
+            const btn = e.target.closest('#update-amount-btn');
+            const paymentId = btn.getAttribute('data-payment-id');
+            const amountInput = document.getElementById('payment-amount-input');
+            
+            if (paymentId && amountInput) {
+                const amountPaid = parseFloat(amountInput.value);
+                if (isNaN(amountPaid) || amountPaid < 0) {
+                    showListPaymentRequestToast('Please enter a valid amount', 'error');
+                    return;
+                }
+                updatePaymentAmount(paymentId, amountPaid);
             }
         }
         
@@ -238,10 +259,31 @@ function displayPaymentDetails(data) {
             </div>
             <div>
                 <div class="text-xs text-slate-500 mb-1">Amount Paid</div>
+                ${payment.payment_status === 'pending' ? `
+                <div class="flex items-center gap-2">
+                    <div class="relative flex-1">
+                        <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500">₱</span>
+                        <input type="number" 
+                               id="payment-amount-input" 
+                               class="form-control pl-8" 
+                               value="${parseFloat(payment.amount_paid || 0).toFixed(2)}" 
+                               step="0.01" 
+                               min="0" 
+                               placeholder="0.00">
+                    </div>
+                    <button type="button" 
+                            id="update-amount-btn" 
+                            class="btn btn-sm btn-primary" 
+                            data-payment-id="${payment.id}">
+                        <i data-lucide="save" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                ` : `
                 <div class="font-medium text-sm text-slate-600">
                     ₱${parseFloat(payment.amount_paid || 0).toFixed(2)}
                     ${payment.waiver_amount > 0 ? `<div class="text-xs text-slate-400 mt-0.5">Waived from ₱${parseFloat(payment.original_amount || payment.amount_paid || 0).toFixed(2)}</div>` : ''}
                 </div>
+                `}
             </div>
             ${payment.waiver_amount > 0 ? `
             <div>
@@ -267,6 +309,24 @@ function displayPaymentDetails(data) {
                     </span>
                 </div>
             </div>
+            ${payment.category ? `
+            <div>
+                <div class="text-xs text-slate-500 mb-1">Payment Category</div>
+                <div class="font-medium text-sm">
+                    <span class="px-2 py-1 text-xs rounded-full ${
+                        payment.category === 'gcash' ? 'bg-primary' : 'bg-slate-500'
+                    } text-white">
+                        ${payment.category.toUpperCase()}
+                    </span>
+                </div>
+            </div>
+            ` : ''}
+            ${payment.ref_number ? `
+            <div>
+                <div class="text-xs text-slate-500 mb-1">Reference Number</div>
+                <div class="font-medium text-sm">${payment.ref_number}</div>
+            </div>
+            ` : ''}
             ${payment.waiver_amount > 0 ? `
             <div class="col-span-2">
                 <div class="text-xs text-slate-500 mb-1">Waiver Reason</div>
@@ -347,36 +407,135 @@ function displayPaymentDetails(data) {
 }
 
 // Approve payment
-function approvePayment(paymentId) {
-    showConfirmationModal(
-        'Are you sure you want to approve this payment request?',
-        () => {
-            fetch(`/listpaymentrequest/${paymentId}/approve`, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showListPaymentRequestToast('Payment approved successfully', 'success');
-            // Reload page to reflect changes
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+function approvePayment(paymentId, amountPaid = null) {
+    const modal = document.getElementById('approval-modal');
+    const paymentIdInput = document.getElementById('approval-payment-id');
+    const amountPaidInput = document.getElementById('approval-amount-paid');
+    const categorySelect = document.getElementById('approval-category');
+    const refNumberContainer = document.getElementById('ref-number-container');
+    const refNumberInput = document.getElementById('approval-ref-number');
+    const confirmBtn = document.getElementById('confirm-approval-btn');
+    
+    if (!modal || !paymentIdInput || !categorySelect) {
+        console.error('Approval modal elements not found!');
+        return;
+    }
+    
+    // Set payment ID and amount
+    paymentIdInput.value = paymentId;
+    if (amountPaidInput) {
+        amountPaidInput.value = amountPaid !== null ? amountPaid : '';
+    }
+    
+    // Reset form
+    categorySelect.value = '';
+    if (refNumberInput) refNumberInput.value = '';
+    refNumberContainer.classList.add('hidden');
+    
+    // Remove previous event listeners by cloning the select
+    const newCategorySelect = categorySelect.cloneNode(true);
+    categorySelect.parentNode.replaceChild(newCategorySelect, categorySelect);
+    
+    // Show/hide ref number based on category selection
+    newCategorySelect.addEventListener('change', function() {
+        if (this.value === 'gcash') {
+            refNumberContainer.classList.remove('hidden');
+            if (refNumberInput) {
+                refNumberInput.required = true;
+            }
         } else {
-            showListPaymentRequestToast(data.message || 'Failed to approve payment', 'error');
+            refNumberContainer.classList.add('hidden');
+            if (refNumberInput) {
+                refNumberInput.required = false;
+                refNumberInput.value = '';
+            }
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showListPaymentRequestToast('An error occurred while approving payment', 'error');
     });
+    
+    // Remove previous event listeners by cloning the button
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    
+    // Add new event listener
+    newConfirmBtn.addEventListener('click', function() {
+        const category = newCategorySelect.value;
+        const refNumber = refNumberInput ? refNumberInput.value.trim() : '';
+        
+        // Validate
+        if (!category) {
+            showListPaymentRequestToast('Please select a payment category', 'error');
+            newCategorySelect.focus();
+            return;
         }
-    );
+        
+        if (category === 'gcash' && !refNumber) {
+            showListPaymentRequestToast('Please enter GCash reference number', 'error');
+            if (refNumberInput) refNumberInput.focus();
+            return;
+        }
+        
+        // Disable button during request
+        newConfirmBtn.disabled = true;
+        newConfirmBtn.innerHTML = '<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mx-auto"></div>';
+        
+        // Prepare request body
+        const requestBody = {
+            category: category
+        };
+        
+        if (amountPaid !== null) {
+            requestBody.amount_paid = parseFloat(amountPaid);
+        }
+        
+        if (category === 'gcash' && refNumber) {
+            requestBody.ref_number = refNumber;
+        }
+        
+        // Close modal first
+        if (typeof tailwind !== 'undefined' && tailwind.Modal) {
+            const modalInstance = tailwind.Modal.getOrCreateInstance(modal);
+            modalInstance.hide();
+        }
+        
+        // Send approval request
+        fetch(`/listpaymentrequest/${paymentId}/approve`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showListPaymentRequestToast('Payment approved successfully', 'success');
+                // Reload page to reflect changes
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showListPaymentRequestToast(data.message || 'Failed to approve payment', 'error');
+                // Re-enable button
+                newConfirmBtn.disabled = false;
+                newConfirmBtn.innerHTML = '<i data-lucide="check" class="w-4 h-4 mr-2"></i> Approve Payment';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showListPaymentRequestToast('An error occurred while approving payment', 'error');
+            // Re-enable button
+            newConfirmBtn.disabled = false;
+            newConfirmBtn.innerHTML = '<i data-lucide="check" class="w-4 h-4 mr-2"></i> Approve Payment';
+        });
+    });
+    
+    // Show modal
+    if (typeof tailwind !== 'undefined' && tailwind.Modal) {
+        const modalInstance = tailwind.Modal.getOrCreateInstance(modal);
+        modalInstance.show();
+    }
 }
 
 // Decline payment
@@ -594,9 +753,9 @@ function createPaymentAndGenerateReceipt(studentId, eventId) {
     });
 }
 
-// Create payment record and approve
-function createPaymentAndApprove(studentId, eventId) {
-    fetch(`/listpaymentrequest/create-payment`, {
+// Update payment amount
+function updatePaymentAmount(paymentId, amountPaid) {
+    fetch(`/listpaymentrequest/${paymentId}/update-amount`, {
         method: 'POST',
         headers: {
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
@@ -604,9 +763,52 @@ function createPaymentAndApprove(studentId, eventId) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            student_id: studentId,
-            event_id: eventId
+            amount_paid: amountPaid
         })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showListPaymentRequestToast('Payment amount updated successfully', 'success');
+            // Reload payment details if modal is open
+            const modal = document.getElementById('paymentDetailsModal');
+            if (modal && modal.classList.contains('show')) {
+                viewPaymentDetails(paymentId);
+            } else {
+                // Reload page to reflect changes
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            }
+        } else {
+            showListPaymentRequestToast(data.message || 'Failed to update payment amount', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showListPaymentRequestToast('An error occurred while updating payment amount', 'error');
+    });
+}
+
+// Create payment record and approve
+function createPaymentAndApprove(studentId, eventId, amountPaid = null) {
+    const requestBody = {
+        student_id: studentId,
+        event_id: eventId
+    };
+    
+    if (amountPaid !== null) {
+        requestBody.amount_paid = amountPaid;
+    }
+    
+    fetch(`/listpaymentrequest/create-payment`, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
     })
     .then(response => response.json())
     .then(data => {
@@ -808,6 +1010,28 @@ function displayReceipt(data) {
                     ${waiverAmount > 0 ? `<div class="mt-1 text-xs text-slate-400">After waiver</div>` : ''}
                 </div>
             </div>
+            ${payment.category ? `
+            <div class="px-5 sm:px-20 pb-10 sm:pb-20 border-t border-slate-200/60 dark:border-darkmode-400">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <div class="text-base text-slate-500">Payment Method</div>
+                        <div class="text-lg font-medium mt-2">
+                            <span class="px-3 py-1 text-sm rounded-full ${
+                                payment.category === 'gcash' ? 'bg-primary' : 'bg-slate-500'
+                            } text-white">
+                                ${payment.category.toUpperCase()}
+                            </span>
+                        </div>
+                    </div>
+                    ${payment.ref_number ? `
+                    <div>
+                        <div class="text-base text-slate-500">Reference Number</div>
+                        <div class="text-lg font-medium mt-2">${payment.ref_number}</div>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+            ` : ''}
         </div>
     `;
 

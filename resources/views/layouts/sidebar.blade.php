@@ -327,14 +327,6 @@
                                     <div class="side-menu__title"> Attendance </div>
                                 </a>
                             </li>
-                            @if(auth(guard: 'students')->check())
-                            <li>
-                                <a href="{{ route('myattendance.myAttendance') }}" class="side-menu {{ request()->routeIs('myattendance.*') ? 'side-menu--active' : '' }}">
-                                    <div class="side-menu__icon"> <i data-lucide="activity"></i> </div>
-                                    <div class="side-menu__title"> My Attendance </div>
-                                </a>
-                            </li>
-                            @endif
                             <li>
                                 <a href="{{ route('listpaymentrequest.list') }}" class="side-menu {{ request()->routeIs('listpaymentrequest.*') ? 'side-menu--active' : '' }}">
                                     <div class="side-menu__icon"> <i data-lucide="activity"></i> </div>
@@ -345,6 +337,14 @@
                         </ul>
                     </li>
                     @endhasPermission
+                    @if(auth('students')->check())
+                    <li>
+                        <a href="{{ route('myattendance.myAttendance') }}" class="side-menu {{ request()->routeIs('myattendance.*') ? 'side-menu--active' : '' }}">
+                            <div class="side-menu__icon"> <i data-lucide="clipboard-check"></i> </div>
+                            <div class="side-menu__title"> My Attendance </div>
+                        </a>
+                    </li>
+                    @endif
                     <li class="side-nav__devider my-6"></li>
                     @hasPermission('Settings')
                     <li>

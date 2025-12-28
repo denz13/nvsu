@@ -18,6 +18,26 @@ class students extends Authenticatable
     protected $primaryKey = 'id';
     protected $fillable = ['id_number', 'student_name', 'address', 'year_level', 'college_id', 'program_id', 'organization_id', 'photo','barcode','password','status'];
 
+    /**
+     * Get the password for authentication.
+     *
+     * @return string
+     */
+    public function getAuthPassword()
+    {
+        return $this->password;
+    }
+
+    /**
+     * Get the name of the unique identifier for the user.
+     *
+     * @return string
+     */
+    public function getAuthIdentifierName()
+    {
+        return 'id_number';
+    }
+
     public function college()
     {
         return $this->belongsTo(college::class, 'college_id');

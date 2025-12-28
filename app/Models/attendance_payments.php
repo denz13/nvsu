@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\students;
 use App\Models\events;
+use App\Models\attendance_payments_time_schedule;
 use App\Traits\LogsActivity;
 
 class attendance_payments extends Model
@@ -15,7 +16,7 @@ class attendance_payments extends Model
 
     protected $table = 'attendance_payments';
     protected $primaryKey = 'id';
-    protected $fillable = ['students_id','events_id', 'amount_paid','payment_status', 'waiver_reason','waiver_attachment','waiver_amount', 'status'];
+    protected $fillable = ['students_id','events_id', 'amount_paid','payment_status', 'waiver_reason','waiver_attachment','waiver_amount', 'status','ref_number','category'];
 
     public function students()
     {
@@ -25,5 +26,10 @@ class attendance_payments extends Model
     public function events()
     {
         return $this->belongsTo(events::class, 'events_id');
+    }
+
+    public function timeSchedules()
+    {
+        return $this->hasMany(attendance_payments_time_schedule::class, 'attendance_payments_id');
     }
 }

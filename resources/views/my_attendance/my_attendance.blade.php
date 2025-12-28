@@ -29,6 +29,7 @@
                     <th class="text-center whitespace-nowrap">TIME IN</th>
                     <th class="text-center whitespace-nowrap">TIME OUT</th>
                     <th class="text-center whitespace-nowrap">STATUS</th>
+                    <th class="text-center whitespace-nowrap">PAYMENT STATUS</th>
                     <th class="text-center whitespace-nowrap">ABSENCE FINE</th>
                     <th class="text-center whitespace-nowrap">LATE PENALTY</th>
                     <th class="text-center whitespace-nowrap">TOTAL PENALTY</th>
@@ -103,6 +104,30 @@
                             @endif
                         </td>
                         <td class="text-center">
+                            @php
+                                $paymentStatus = $attendance['payment_status'] ?? null;
+                                $paymentStatusBadge = 'bg-slate-500';
+                                $paymentStatusText = 'No Payment';
+                                
+                                if ($paymentStatus === 'pending') {
+                                    $paymentStatusBadge = 'bg-warning';
+                                    $paymentStatusText = 'Pending';
+                                } elseif ($paymentStatus === 'approved') {
+                                    $paymentStatusBadge = 'bg-primary';
+                                    $paymentStatusText = 'Approved';
+                                } elseif ($paymentStatus === 'paid') {
+                                    $paymentStatusBadge = 'bg-success';
+                                    $paymentStatusText = 'Paid';
+                                } elseif ($paymentStatus === 'declined') {
+                                    $paymentStatusBadge = 'bg-danger';
+                                    $paymentStatusText = 'Declined';
+                                }
+                            @endphp
+                            <span class="px-2 py-1 text-xs rounded-full {{ $paymentStatusBadge }} text-white">
+                                {{ $paymentStatusText }}
+                            </span>
+                        </td>
+                        <td class="text-center">
                             <span class="text-slate-600">₱{{ number_format($attendance['absence_fine'] ?? 0, 2) }}</span>
                         </td>
                         <td class="text-center">
@@ -149,7 +174,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="10" class="text-center py-12">
+                        <td colspan="11" class="text-center py-12">
                             <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-check mx-auto mb-4 text-slate-300">
                                 <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                                 <circle cx="8.5" cy="7" r="4"></circle>
