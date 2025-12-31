@@ -140,8 +140,8 @@ class ListPaymentRequestController extends Controller
                             $paymentsQuery->whereRaw('1 = 0');
                         }
                     } else {
-                        // User has permission setting with modules but no students assigned - show nothing
-                        $paymentsQuery->whereRaw('1 = 0');
+                        // User has permission setting with modules but no students assigned - show all (no filtering)
+                        // No additional filtering needed
                     }
                 } else {
                     // User has permission setting but no modules - show all (no filtering)

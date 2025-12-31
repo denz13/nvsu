@@ -345,6 +345,8 @@
                         </a>
                     </li>
                     @endif
+
+                    
                     <li class="side-nav__devider my-6"></li>
                     @hasPermission('Settings')
                     <li>
@@ -373,6 +375,39 @@
                         </ul>
                     </li>
                     @endif
+
+                    <li>
+                        <a href="javascript:;" class="side-menu {{ request()->routeIs('print.*') ? 'side-menu--active side-menu--open' : '' }}">
+                            <div class="side-menu__icon"> <i data-lucide="inbox"></i> </div>
+                            <div class="side-menu__title">
+                                Report Management 
+                                <div class="side-menu__sub-icon {{ request()->routeIs('print.*') ? 'transform rotate-180' : '' }}"> <i data-lucide="chevron-down"></i> </div>
+                            </div>
+                        </a>
+                        <ul class="{{ request()->routeIs('print.*') ? 'side-menu__sub-open' : '' }}">
+                            <li>
+                                <a href="{{ route('print.list-of-students') }}" class="side-menu {{ request()->routeIs('print.list-of-students') ? 'side-menu--active' : '' }}">
+                                    <div class="side-menu__icon"> <i data-lucide="activity"></i> </div>
+                                    <div class="side-menu__title">
+                                        List of Students </div>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('print.list-of-events') }}" class="side-menu {{ request()->routeIs('print.list-of-events') ? 'side-menu--active' : '' }}">
+                                    <div class="side-menu__icon"> <i data-lucide="activity"></i> </div>
+                                    <div class="side-menu__title"> List of Events</div>
+                                </a>
+                            </li>
+
+                            <li>
+                                <a href="{{ route('print.list-of-payments') }}" class="side-menu {{ request()->routeIs('print.list-of-payments') ? 'side-menu--active' : '' }}">
+                                    <div class="side-menu__icon"> <i data-lucide="activity"></i> </div>
+                                    <div class="side-menu__title"> Financial Report Per College</div>
+                                </a>
+                            </li>
+                            
+                        </ul>
+                    </li>
                     
                    
                 </ul>

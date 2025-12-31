@@ -22,6 +22,7 @@ use App\Http\Controllers\calendar\CalendarController;
 use App\Http\Controllers\chat\ChatController;
 use App\Http\Controllers\announcement\AnnouncementController;
 use App\Http\Controllers\permission\PermissionController;
+use App\Http\Controllers\print\PrintController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -165,5 +166,14 @@ Route::middleware('auth:web,students')->group(function() {
         Route::get('permission/edit/{id}', 'edit')->name('permission.edit');
         Route::put('permission/update/{id}', 'update')->name('permission.update');
         Route::delete('permission/delete/{id}', 'destroy')->name('permission.destroy');
+    });
+
+    Route::controller(PrintController::class)->group(function() {
+        Route::get('reports/print-list-of-students', 'listOfStudents')->name('print.list-of-students');
+        Route::get('reports/print-list-of-students/pdf', 'printListOfStudentsPDF')->name('print.list-of-students-pdf');
+        Route::get('reports/print-list-of-events', 'listOfEvents')->name('print.list-of-events');
+        Route::get('reports/print-list-of-events/pdf', 'printListOfEventsPDF')->name('print.list-of-events-pdf');
+        Route::get('reports/print-list-of-payments', 'listOfPayments')->name('print.list-of-payments');
+        Route::get('reports/print-list-of-payments/pdf', 'printListOfPaymentsPDF')->name('print.list-of-payments-pdf');
     });
 });
