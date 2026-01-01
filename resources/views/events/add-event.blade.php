@@ -124,20 +124,20 @@
             </select>
         </div>
         <div class="md:col-span-1" id="add-morning-start-group" style="display: none;">
-            <label class="form-label">Morning Start Date & Time <span class="text-danger">*</span></label>
-            <input type="datetime-local" class="form-control w-full" id="add-start-datetime-morning" name="start_datetime_morning" style="width: 100%;">
+            <label class="form-label font-medium">Morning Start Date & Time <span class="text-danger">*</span></label>
+            <input type="datetime-local" class="form-control w-full" id="add-start-datetime-morning" name="start_datetime_morning" style="width: 100%; height: 38px; font-size: 14px;">
         </div>
         <div class="md:col-span-1" id="add-morning-end-group" style="display: none;">
-            <label class="form-label">Morning End Date & Time <span class="text-danger">*</span></label>
-            <input type="datetime-local" class="form-control w-full" id="add-end-datetime-morning" name="end_datetime_morning" style="width: 100%;">
+            <label class="form-label font-medium">Morning End Date & Time <span class="text-danger">*</span></label>
+            <input type="datetime-local" class="form-control w-full" id="add-end-datetime-morning" name="end_datetime_morning" style="width: 100%; height: 38px; font-size: 14px;">
         </div>
         <div class="md:col-span-1" id="add-afternoon-start-group" style="display: none;">
-            <label class="form-label">Afternoon Start Date & Time <span class="text-danger">*</span></label>
-            <input type="datetime-local" class="form-control w-full" id="add-start-datetime-afternoon" name="start_datetime_afternoon" style="width: 100%;">
+            <label class="form-label font-medium">Afternoon Start Date & Time <span class="text-danger">*</span></label>
+            <input type="datetime-local" class="form-control w-full" id="add-start-datetime-afternoon" name="start_datetime_afternoon" style="width: 100%; height: 38px; font-size: 14px;">
         </div>
         <div class="md:col-span-1" id="add-afternoon-end-group" style="display: none;">
-            <label class="form-label">Afternoon End Date & Time <span class="text-danger">*</span></label>
-            <input type="datetime-local" class="form-control w-full" id="add-end-datetime-afternoon" name="end_datetime_afternoon" style="width: 100%;">
+            <label class="form-label font-medium">Afternoon End Date & Time <span class="text-danger">*</span></label>
+            <input type="datetime-local" class="form-control w-full" id="add-end-datetime-afternoon" name="end_datetime_afternoon" style="width: 100%; height: 38px; font-size: 14px;">
         </div>
         <div class="md:col-span-2">
             <label class="form-label">Fines</label>
@@ -191,20 +191,20 @@
             </select>
         </div>
         <div class="md:col-span-1" id="edit-morning-start-group" style="display: none;">
-            <label class="form-label">Morning Start Date & Time <span class="text-danger">*</span></label>
-            <input type="datetime-local" class="form-control w-full" id="edit-start-datetime-morning" name="start_datetime_morning" style="width: 100%;">
+            <label class="form-label font-medium">Morning Start Date & Time <span class="text-danger">*</span></label>
+            <input type="datetime-local" class="form-control w-full" id="edit-start-datetime-morning" name="start_datetime_morning" style="width: 100%; height: 38px; font-size: 14px;">
         </div>
         <div class="md:col-span-1" id="edit-morning-end-group" style="display: none;">
-            <label class="form-label">Morning End Date & Time <span class="text-danger">*</span></label>
-            <input type="datetime-local" class="form-control w-full" id="edit-end-datetime-morning" name="end_datetime_morning" style="width: 100%;">
+            <label class="form-label font-medium">Morning End Date & Time <span class="text-danger">*</span></label>
+            <input type="datetime-local" class="form-control w-full" id="edit-end-datetime-morning" name="end_datetime_morning" style="width: 100%; height: 38px; font-size: 14px;">
         </div>
         <div class="md:col-span-1" id="edit-afternoon-start-group" style="display: none;">
-            <label class="form-label">Afternoon Start Date & Time <span class="text-danger">*</span></label>
-            <input type="datetime-local" class="form-control w-full" id="edit-start-datetime-afternoon" name="start_datetime_afternoon" style="width: 100%;">
+            <label class="form-label font-medium">Afternoon Start Date & Time <span class="text-danger">*</span></label>
+            <input type="datetime-local" class="form-control w-full" id="edit-start-datetime-afternoon" name="start_datetime_afternoon" style="width: 100%; height: 38px; font-size: 14px;">
         </div>
         <div class="md:col-span-1" id="edit-afternoon-end-group" style="display: none;">
-            <label class="form-label">Afternoon End Date & Time <span class="text-danger">*</span></label>
-            <input type="datetime-local" class="form-control w-full" id="edit-end-datetime-afternoon" name="end_datetime_afternoon" style="width: 100%;">
+            <label class="form-label font-medium">Afternoon End Date & Time <span class="text-danger">*</span></label>
+            <input type="datetime-local" class="form-control w-full" id="edit-end-datetime-afternoon" name="end_datetime_afternoon" style="width: 100%; height: 38px; font-size: 14px;">
         </div>
         <div class="md:col-span-2">
             <label class="form-label">Fines</label>
@@ -265,58 +265,56 @@
 @include('components.modal', [
 'modalId' => 'add-participants-modal',
 'size' => 'lg',
-'title' => 'Add Participants',
+'title' => 'Edit Participants',
 'body' => '
-<form id="add-participants-form">
+<div id="add-participants-form">
     <input type="hidden" id="ap-events-id" name="events_id" />
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-            <label class="form-label">College</label>
-            <select id="ap-college" name="college_id" class="tom-select w-full" data-placeholder="Select college">
+        <div class="md:col-span-2 mb-3">
+            <label class="form-label font-medium">College</label>
+            <select id="ap-college" name="college_id" class="tom-select w-full" data-placeholder="Select college" style="width: 100%;">
                 <option value="">-- Select College --</option>
             </select>
         </div>
-        <div>
-            <label class="form-label">Program</label>
-            <select id="ap-program" name="program_id" class="tom-select w-full" data-placeholder="Select program">
+        <div class="md:col-span-2 mb-3">
+            <label class="form-label font-medium">Program</label>
+            <select id="ap-program" name="program_id" class="tom-select w-full" data-placeholder="Select program" style="width: 100%;">
                 <option value="">-- Select Program --</option>
             </select>
         </div>
-        <div class="md:col-span-2">
-            <label class="form-label">Organization</label>
-            <select id="ap-organization" name="organization_id" class="tom-select w-full" data-placeholder="Select organization">
+        <div class="md:col-span-2 mb-3">
+            <label class="form-label font-medium">Organization</label>
+            <select id="ap-organization" name="organization_id" class="tom-select w-full" data-placeholder="Select organization" style="width: 100%;">
                 <option value="">-- Select Organization --</option>
             </select>
         </div>
         
-        <div id="ap-morning-time-in-group" style="display: none;">
-            <label class="form-label">Morning Allowed Time In</label>
-            <input type="time" class="form-control" id="ap-time-in-morning" name="time_in_morning">
+        <div class="md:col-span-2 mb-3" id="ap-morning-time-in-group" style="display: none;">
+            <label class="form-label font-medium">Morning Allowed Time In</label>
+            <input type="time" class="form-control w-full" id="ap-time-in-morning" name="time_in_morning" style="width: 100%; height: 38px; font-size: 14px;">
         </div>
-        <div id="ap-morning-time-out-group" style="display: none;">
-            <label class="form-label">Morning Allowed Time Out</label>
-            <input type="time" class="form-control" id="ap-time-out-morning" name="time_out_morning">
+        <div class="md:col-span-2 mb-3" id="ap-morning-time-out-group" style="display: none;">
+            <label class="form-label font-medium">Morning Allowed Time Out</label>
+            <input type="time" class="form-control w-full" id="ap-time-out-morning" name="time_out_morning" style="width: 100%; height: 38px; font-size: 14px;">
         </div>
-        <div id="ap-afternoon-time-in-group" style="display: none;">
-            <label class="form-label">Afternoon Allowed Time In</label>
-            <input type="time" class="form-control" id="ap-time-in-afternoon" name="time_in_afternoon">
+        <div class="md:col-span-2 mb-3" id="ap-afternoon-time-in-group" style="display: none;">
+            <label class="form-label font-medium">Afternoon Allowed Time In</label>
+            <input type="time" class="form-control w-full" id="ap-time-in-afternoon" name="time_in_afternoon" style="width: 100%; height: 38px; font-size: 14px;">
         </div>
-        <div id="ap-afternoon-time-out-group" style="display: none;">
-            <label class="form-label">Afternoon Allowed Time Out</label>
-            <input type="time" class="form-control" id="ap-time-out-afternoon" name="time_out_afternoon">
+        <div class="md:col-span-2 mb-3" id="ap-afternoon-time-out-group" style="display: none;">
+            <label class="form-label font-medium">Afternoon Allowed Time Out</label>
+            <input type="time" class="form-control w-full" id="ap-time-out-afternoon" name="time_out_afternoon" style="width: 100%; height: 38px; font-size: 14px;">
         </div>
-        <div class="md:col-span-2">
-            <label class="form-label">Late Penalty</label>
-            <input type="number" step="0.01" min="0" class="form-control" id="ap-late-penalty" name="late_penalty" placeholder="0.00">
+        <div class="md:col-span-2 mb-3">
+            <label class="form-label font-medium">Late Penalty</label>
+            <input type="number" step="0.01" min="0" class="form-control w-full" id="ap-late-penalty" name="late_penalty" placeholder="0.00" style="width: 100%; height: 38px; font-size: 14px;">
         </div>
     </div>
-</form>
+</div>
 ',
 'footer' => '
 <button type="button" class="btn btn-secondary" data-tw-dismiss="modal">Close</button>
-<button type="button" class="btn btn-primary" id="ap-save-btn">
-    <i data-lucide="save" class="w-4 h-4 mr-2"></i> Save
-</button>
+<button type="button" class="btn btn-primary" id="ap-save-btn"> Save Changes</button>
 ',
 'showButton' => false
 ])

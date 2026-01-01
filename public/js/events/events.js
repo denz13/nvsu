@@ -389,19 +389,42 @@ window.addParticipants = function(eventId) {
         
         // Prefill defaults
         const defaults = data.defaults || {};
-        const setSelectValue = (selector, value) => {
+        const setSelectValue = (selector, value, silent = false) => {
             const el = document.querySelector(selector);
             if (!el) return;
-            if (value === null || value === undefined || value === '') return;
-            el.value = String(value);
+            // Handle null/undefined/empty as '' (which maps to "All" option)
+            const strValue = (value === null || value === undefined || value === '') ? '' : String(value);
             if (el.tomselect) {
-                try { el.tomselect.setValue(String(value), true); } catch (e) {}
+                try { 
+                    el.tomselect.setValue(strValue, silent); 
+                } catch (e) {
+                    console.warn('Failed to set value:', e);
+                }
+            } else {
+                el.value = strValue;
             }
         };
-        setSelectValue('#ap-college', defaults.college_id ?? '');
-        setSelectValue('#ap-program', defaults.program_id ?? '');
-        const orgVal = defaults.organization_id === null ? 'none' : (defaults.organization_id ?? '');
-        setSelectValue('#ap-organization', orgVal);
+        
+        // Set college first (this will trigger filter for programs/organizations if not "All")
+        const collegeVal = defaults.college_id ?? '';
+        setSelectValue('#ap-college', collegeVal, false);
+        
+        // Wait for filter to complete (if college was not "All"), then set program and organization
+        setTimeout(() => {
+            const programVal = defaults.program_id ?? '';
+            setSelectValue('#ap-program', programVal, true);
+            
+            // For organization: null means "None", empty/undefined means "All"
+            let orgVal = '';
+            if (defaults.organization_id === null) {
+                orgVal = 'none';
+            } else if (defaults.organization_id === undefined || defaults.organization_id === '') {
+                orgVal = '';
+            } else {
+                orgVal = String(defaults.organization_id);
+            }
+            setSelectValue('#ap-organization', orgVal, true);
+        }, 300);
 
         // Prefill time fields
         const penaltyInput = document.getElementById('ap-late-penalty');

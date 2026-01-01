@@ -444,31 +444,11 @@ function searchStudent(barcode) {
         if (result.data.success && result.data.student) {
             displayStudent(result.data.student);
             
-            // Show attendance message if available
-            let successMessage = `Student found: ${result.data.student.student_name}`;
-            if (result.data.attendance) {
-                if (result.data.attendance.success) {
-                    const attendance = result.data.attendance;
-                    successMessage += `\n${attendance.workstate_text}: ${attendance.log_time}`;
-                    showSuccess('Success!', successMessage);
-                } else {
-                    // Attendance save failed
-                    showError('Attendance Error!', `Student found but failed to save attendance: ${result.data.attendance.message || 'Unknown error'}`);
-                    console.error('Attendance save error:', result.data.attendance);
-                }
-            } else {
-                showSuccess('Success!', successMessage);
-            }
+            // Show modal for Time In / Time Out selection
+            showAttendanceSelectionModal(result.data);
             
             // Reset searching flag
             isSearching = false;
-            
-            // Refocus scanner for next scan
-            setTimeout(() => {
-                if (deviceScanner) {
-                    deviceScanner.focus();
-                }
-            }, 500);
         } else {
             // Show debug info if available
             let errorMessage = result.data.message || 'No student found with this barcode.';
@@ -768,4 +748,228 @@ function displayStudentDetailsModal(student) {
         document.body.removeChild(modalTrigger);
     }, 100);
 };
+
+// Show attendance selection modal
+function showAttendanceSelectionModal(data) {
+    const student = data.student;
+    const participantCheck = data.participant_check;
+    const existingAttendance = data.existing_attendance || [];
+    const eventInfo = data.event_info;
+    
+    // Update student info in modal
+    const photoUrl = student.photo ? `/${student.photo}` : '/dist/images/preview-7.jpg';
+    document.getElementById('modal-student-photo').src = photoUrl;
+    document.getElementById('modal-student-name').textContent = student.student_name || 'N/A';
+    document.getElementById('modal-student-id').textContent = `ID: ${student.id_number || 'N/A'}`;
+    document.getElementById('modal-student-college').textContent = student.college ? student.college.college_name : 'N/A';
+    
+    // Show current time and allowed times
+    const existingInfoDiv = document.getElementById('existing-attendance-info');
+    let html = '';
+    
+    // Show time info box
+    if (participantCheck && participantCheck.late) {
+        html += '<div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-xs">';
+        html += `<p class="font-medium text-blue-800 mb-1">⏰ Time Schedule</p>`;
+        html += `<div class="text-blue-700">`;
+        html += `<div><strong>Current Time:</strong> ${participantCheck.current_time || 'N/A'}</div>`;
+        if (participantCheck.late.allowed_time_in) {
+            html += `<div><strong>Time In Allowed:</strong> ${participantCheck.late.allowed_time_in}</div>`;
+        }
+        if (participantCheck.late.allowed_time_out) {
+            html += `<div><strong>Time Out Allowed:</strong> ${participantCheck.late.allowed_time_out}</div>`;
+        }
+        html += `</div></div>`;
+    }
+    
+    // Show existing attendance records
+    if (existingAttendance.length > 0) {
+        html += '<div class="mb-4"><p class="font-medium text-sm mb-2">Existing Records:</p><ul class="list-disc pl-5 text-xs text-slate-600">';
+        existingAttendance.forEach(att => {
+            html += `<li><strong>${att.workstate_text}:</strong> ${att.log_time}</li>`;
+        });
+        html += '</ul></div>';
+    } else {
+        html += '<div class="text-xs text-slate-500 mb-4">No attendance records yet for this event.</div>';
+    }
+    
+    existingInfoDiv.innerHTML = html;
+    
+    // Show late penalty warning if late
+    const latePenaltyDiv = document.getElementById('late-penalty-info');
+    if (participantCheck && participantCheck.late && participantCheck.late.is_late) {
+        latePenaltyDiv.classList.remove('hidden');
+        const penalty = participantCheck.late.penalty || 0;
+        latePenaltyDiv.querySelector('p:last-child').textContent = `A penalty fee of ₱${penalty.toFixed(2)} will be charged if you proceed.`;
+    } else {
+        latePenaltyDiv.classList.add('hidden');
+    }
+    
+    // Disable buttons based on existing records and time restrictions
+    const btnTimeIn = document.getElementById('btn-time-in');
+    const btnTimeOut = document.getElementById('btn-time-out');
+    
+    if (participantCheck) {
+        // Time In button logic
+        if (participantCheck.has_time_in) {
+            btnTimeIn.disabled = true;
+            btnTimeIn.classList.add('opacity-50', 'cursor-not-allowed');
+            btnTimeIn.title = 'Time In already recorded';
+        } else if (participantCheck.too_early_for_time_in) {
+            btnTimeIn.disabled = true;
+            btnTimeIn.classList.add('opacity-50', 'cursor-not-allowed');
+            const allowedTime = participantCheck.late && participantCheck.late.allowed_time_in ? participantCheck.late.allowed_time_in : 'scheduled time';
+            btnTimeIn.title = `Too early! Time In allowed from: ${allowedTime}. Current time: ${participantCheck.current_time}`;
+            // Add warning text below button
+            btnTimeIn.innerHTML = btnTimeIn.innerHTML + `<div class="text-xxs text-red-400 mt-1">Available at ${allowedTime}</div>`;
+        } else {
+            btnTimeIn.disabled = false;
+            btnTimeIn.classList.remove('opacity-50', 'cursor-not-allowed');
+            btnTimeIn.title = '';
+        }
+        
+        // Time Out button logic
+        if (participantCheck.has_time_out) {
+            btnTimeOut.disabled = true;
+            btnTimeOut.classList.add('opacity-50', 'cursor-not-allowed');
+            btnTimeOut.title = 'Time Out already recorded';
+        } else if (!participantCheck.has_time_in) {
+            // Can't time out without time in
+            btnTimeOut.disabled = true;
+            btnTimeOut.classList.add('opacity-50', 'cursor-not-allowed');
+            btnTimeOut.title = 'Please record Time In first';
+        } else if (participantCheck.too_early_for_time_out) {
+            btnTimeOut.disabled = true;
+            btnTimeOut.classList.add('opacity-50', 'cursor-not-allowed');
+            const allowedTime = participantCheck.late && participantCheck.late.allowed_time_out ? participantCheck.late.allowed_time_out : 'scheduled time';
+            btnTimeOut.title = `Too early! Time Out allowed from: ${allowedTime}. Current time: ${participantCheck.current_time}`;
+            // Add warning text below button
+            btnTimeOut.innerHTML = btnTimeOut.innerHTML + `<div class="text-xxs text-yellow-400 mt-1">Available at ${allowedTime}</div>`;
+        } else {
+            btnTimeOut.disabled = false;
+            btnTimeOut.classList.remove('opacity-50', 'cursor-not-allowed');
+            btnTimeOut.title = '';
+        }
+    }
+    
+    // Store data for later use
+    btnTimeIn.setAttribute('data-student-id', student.id);
+    btnTimeIn.setAttribute('data-event-id', eventInfo.event_id);
+    btnTimeOut.setAttribute('data-student-id', student.id);
+    btnTimeOut.setAttribute('data-event-id', eventInfo.event_id);
+    
+    // Show modal
+    const modalTrigger = document.createElement('div');
+    modalTrigger.style.display = 'none';
+    modalTrigger.setAttribute('data-tw-toggle', 'modal');
+    modalTrigger.setAttribute('data-tw-target', '#attendanceSelectionModal');
+    document.body.appendChild(modalTrigger);
+    modalTrigger.click();
+    setTimeout(() => {
+        document.body.removeChild(modalTrigger);
+    }, 100);
+}
+
+// Handle Time In button click
+document.addEventListener('DOMContentLoaded', function() {
+    const btnTimeIn = document.getElementById('btn-time-in');
+    const btnTimeOut = document.getElementById('btn-time-out');
+    
+    if (btnTimeIn) {
+        btnTimeIn.addEventListener('click', function() {
+            if (this.disabled) return;
+            const studentId = this.getAttribute('data-student-id');
+            const eventId = this.getAttribute('data-event-id');
+            recordAttendance(studentId, eventId, 0); // 0 = Time In
+        });
+    }
+    
+    if (btnTimeOut) {
+        btnTimeOut.addEventListener('click', function() {
+            if (this.disabled) return;
+            const studentId = this.getAttribute('data-student-id');
+            const eventId = this.getAttribute('data-event-id');
+            recordAttendance(studentId, eventId, 1); // 1 = Time Out
+        });
+    }
+});
+
+// Record attendance
+function recordAttendance(studentId, eventId, workstate) {
+    const btnTimeIn = document.getElementById('btn-time-in');
+    const btnTimeOut = document.getElementById('btn-time-out');
+    
+    // Disable buttons while processing
+    btnTimeIn.disabled = true;
+    btnTimeOut.disabled = true;
+    btnTimeIn.innerHTML = '<div class="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto"></div>';
+    btnTimeOut.innerHTML = '<div class="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto"></div>';
+    
+    fetch('/scanner/record', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            student_id: studentId,
+            event_id: eventId,
+            workstate: workstate
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccess('Success!', data.message);
+            
+            // Close modal
+            const modal = document.getElementById('attendanceSelectionModal');
+            if (modal) {
+                modal.classList.remove('show');
+                modal.style.display = 'none';
+                document.body.classList.remove('modal-open');
+                const backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+            }
+            
+            // Refocus scanner
+            setTimeout(() => {
+                if (deviceScanner) {
+                    deviceScanner.focus();
+                }
+            }, 500);
+        } else {
+            showError('Error!', data.message || 'Failed to record attendance');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('Error!', 'Failed to record attendance. Please try again.');
+    })
+    .finally(() => {
+        // Reset buttons
+        btnTimeIn.disabled = false;
+        btnTimeOut.disabled = false;
+        btnTimeIn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 mx-auto mb-2">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <div class="font-medium text-base">Time In</div>
+            <div class="text-xs opacity-70 mt-1">Record arrival</div>
+        `;
+        btnTimeOut.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 mx-auto mb-2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <div class="font-medium text-base">Time Out</div>
+            <div class="text-xs opacity-70 mt-1">Record departure</div>
+        `;
+    });
+}
 

@@ -375,7 +375,7 @@
                         </ul>
                     </li>
                     @endif
-
+                    @hasPermission('Report Management')
                     <li>
                         <a href="javascript:;" class="side-menu {{ request()->routeIs('print.*') ? 'side-menu--active side-menu--open' : '' }}">
                             <div class="side-menu__icon"> <i data-lucide="inbox"></i> </div>
@@ -408,7 +408,7 @@
                             
                         </ul>
                     </li>
-                    
+                    @endhasPermission
                    
                 </ul>
             </nav>

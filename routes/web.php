@@ -95,11 +95,14 @@ Route::middleware('auth:web,students')->group(function() {
         Route::put('students/update/{id}', 'update')->name('students.update');
         Route::delete('students/delete/{id}', 'destroy')->name('students.destroy');
         Route::post('students/update-barcode/{id}', 'updateBarcode')->name('students.update-barcode');
+        Route::get('students/programs-by-college/{collegeId}', 'getProgramsByCollege')->name('students.programs-by-college');
+        Route::get('students/organizations-by-program/{programId}', 'getOrganizationsByProgram')->name('students.organizations-by-program');
     });
 
     Route::controller(ScannerController::class)->group(function() {
         Route::get('scanner', 'scanner')->name('scanner.scanner');
         Route::post('scanner/search', 'search')->name('scanner.search');
+        Route::post('scanner/record', 'recordAttendance')->name('scanner.record');
         Route::get('scanner/details/{id}', 'details')->name('scanner.details');
     });
 

@@ -184,4 +184,44 @@ class StudentsController extends Controller
             ], 500);
         }
     }
+    
+    public function getProgramsByCollege($collegeId)
+    {
+        try {
+            $programs = program::where('college_id', $collegeId)
+                ->where('status', 'active')
+                ->orderBy('program_name', 'asc')
+                ->get();
+            
+            return response()->json([
+                'success' => true,
+                'data' => $programs
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch programs: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    public function getOrganizationsByProgram($programId)
+    {
+        try {
+            $organizations = organization::where('program_id', $programId)
+                ->where('status', 'active')
+                ->orderBy('organization_name', 'asc')
+                ->get();
+            
+            return response()->json([
+                'success' => true,
+                'data' => $organizations
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch organizations: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

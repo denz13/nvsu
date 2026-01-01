@@ -393,37 +393,66 @@ class ScannerController extends Controller
                     $penalty = (float)($lateRule->late_penalty ?? 0);
                 }
 
-                // Log before saving attendance
-                Log::info('Before saving attendance', [
-                    'student_id' => $student->id,
-                    'event_id' => $eventId,
-                    'workstate' => $workstate,
-                    'existing_count' => tbl_attendance::where('student_id', $student->id)
-                        ->where('event_id', $eventId)
-                        ->where('status', 'active')
-                        ->count()
-                ]);
-                
-                // Save attendance automatically - pass event info for whole_day time window checking
-                $attendanceResult = $this->saveAttendance($student->id, $eventId, $workstate, $event, $currentTimeWindow, $eventStartDateTime, $eventEndDateTime);
+                // Don't save automatically - let user choose Time In or Time Out
+                // Return student info and existing attendance records
                 
                 // Convert student to array to avoid serialization issues
                 $studentArray = $student->toArray();
                 
+                // Get existing attendance records for display
+                $existingAttendances = $eventAttendances->map(function($att) {
+                    return [
+                        'id' => $att->id,
+                        'log_time' => $att->log_time ? $att->log_time->format('M d, Y h:i A') : null,
+                        'workstate' => $att->workstate,
+                        'workstate_text' => $att->workstate == "0" || $att->workstate == 0 ? 'Time In' : 'Time Out',
+                    ];
+                });
+                
+                // Check if it's too early to time in/out
+                $tooEarlyForTimeIn = false;
+                $tooEarlyForTimeOut = false;
+                $allowedTimeInFormatted = null;
+                $allowedTimeOutFormatted = null;
+                
+                if ($lateRule && $allowedTimeIn) {
+                    $allowedTimeInStr = strlen($allowedTimeIn) == 5 ? $allowedTimeIn . ':00' : $allowedTimeIn;
+                    $allowedTimeInDateTime = \Carbon\Carbon::parse($now->format('Y-m-d') . ' ' . $allowedTimeInStr);
+                    $allowedTimeInFormatted = $allowedTimeInDateTime->format('h:i A');
+                    $tooEarlyForTimeIn = $now->lt($allowedTimeInDateTime);
+                }
+                
+                if ($lateRule && $allowedTimeOut) {
+                    $allowedTimeOutStr = strlen($allowedTimeOut) == 5 ? $allowedTimeOut . ':00' : $allowedTimeOut;
+                    $allowedTimeOutDateTime = \Carbon\Carbon::parse($now->format('Y-m-d') . ' ' . $allowedTimeOutStr);
+                    $allowedTimeOutFormatted = $allowedTimeOutDateTime->format('h:i A');
+                    $tooEarlyForTimeOut = $now->lt($allowedTimeOutDateTime);
+                }
+                
                 return response()->json([
                     'success' => true,
                     'student' => $studentArray,
-                    'attendance' => $attendanceResult,
+                    'existing_attendance' => $existingAttendances,
+                    'suggested_workstate' => $workstate, // Suggestion based on existing records
                     'participant_check' => [
                         'is_participant' => true,
                         'is_within_event' => $isWithinEvent,
                         'late' => [
                             'is_late' => $isLate,
-                            'allowed_time_in' => $allowedTimeIn ?? null,
-                            'allowed_time_out' => $allowedTimeOut ?? null,
+                            'allowed_time_in' => $allowedTimeInFormatted ?? null,
+                            'allowed_time_out' => $allowedTimeOutFormatted ?? null,
                             'penalty' => $penalty,
-                            'workstate' => $workstate,
-                        ]
+                        ],
+                        'has_time_in' => $hasTimeIn,
+                        'has_time_out' => $hasTimeOut,
+                        'too_early_for_time_in' => $tooEarlyForTimeIn,
+                        'too_early_for_time_out' => $tooEarlyForTimeOut,
+                        'current_time' => $now->format('h:i A'),
+                    ],
+                    'event_info' => [
+                        'event_id' => $eventId,
+                        'event_schedule_type' => $event->event_schedule_type,
+                        'current_time_window' => $currentTimeWindow,
                     ],
                     'debug' => [
                         'scanned_barcode' => $barcode,
@@ -736,6 +765,142 @@ class ScannerController extends Controller
                 throw $e; // Re-throw to let transaction handle rollback
             }
         });
+    }
+    
+    public function recordAttendance(Request $request)
+    {
+        $request->validate([
+            'student_id' => 'required|exists:students,id',
+            'event_id' => 'required|exists:events,id',
+            'workstate' => 'required|in:0,1'
+        ]);
+        
+        try {
+            $studentId = $request->student_id;
+            $eventId = $request->event_id;
+            $workstate = (int)$request->workstate;
+            
+            // Get event info for validation
+            $event = events::find($eventId);
+            if (!$event) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Event not found.'
+                ], 404);
+            }
+            
+            // Get late rule to check allowed times
+            $lateRule = events_lates_deduction::where('events_id', $eventId)
+                ->where('status', 'active')
+                ->orderBy('id', 'desc')
+                ->first();
+            
+            // Determine current time window for whole_day events
+            $now = \Carbon\Carbon::now();
+            $currentTimeWindow = null;
+            $eventStartDateTime = null;
+            $eventEndDateTime = null;
+            
+            // Determine which time window we're in (morning or afternoon)
+            if ($event->event_schedule_type === 'whole_day') {
+                $morningStart = $event->start_datetime_morning ? \Carbon\Carbon::parse($event->start_datetime_morning) : null;
+                $morningEnd = $event->end_datetime_morning ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
+                $afternoonStart = $event->start_datetime_afternoon ? \Carbon\Carbon::parse($event->start_datetime_afternoon) : null;
+                $afternoonEnd = $event->end_datetime_afternoon ? \Carbon\Carbon::parse($event->end_datetime_afternoon) : null;
+                
+                if ($morningStart && $morningEnd && $now->between($morningStart, $morningEnd)) {
+                    $currentTimeWindow = 'morning';
+                    $eventStartDateTime = $morningStart;
+                    $eventEndDateTime = $morningEnd;
+                } elseif ($afternoonStart && $afternoonEnd && $now->between($afternoonStart, $afternoonEnd)) {
+                    $currentTimeWindow = 'afternoon';
+                    $eventStartDateTime = $afternoonStart;
+                    $eventEndDateTime = $afternoonEnd;
+                }
+            } elseif ($event->event_schedule_type === 'half_day_morning') {
+                $currentTimeWindow = 'morning';
+                $eventStartDateTime = \Carbon\Carbon::parse($event->start_datetime_morning);
+                $eventEndDateTime = \Carbon\Carbon::parse($event->end_datetime_morning);
+            } elseif ($event->event_schedule_type === 'half_day_afternoon') {
+                $currentTimeWindow = 'afternoon';
+                $eventStartDateTime = \Carbon\Carbon::parse($event->start_datetime_afternoon);
+                $eventEndDateTime = \Carbon\Carbon::parse($event->end_datetime_afternoon);
+            }
+            
+            // Validate: Block Time In if current time is before allowed time in
+            if ($workstate == 0 && $lateRule) {
+                $allowedTimeIn = null;
+                
+                // Get appropriate allowed time in based on time window
+                if ($currentTimeWindow === 'morning') {
+                    $allowedTimeIn = $lateRule->time_in_morning;
+                } elseif ($currentTimeWindow === 'afternoon') {
+                    $allowedTimeIn = $lateRule->time_in_afternoon;
+                }
+                
+                if ($allowedTimeIn) {
+                    // Parse allowed time in as today's date + allowed time
+                    $allowedTimeInStr = strlen($allowedTimeIn) == 5 ? $allowedTimeIn . ':00' : $allowedTimeIn;
+                    $allowedTimeInDateTime = \Carbon\Carbon::parse($now->format('Y-m-d') . ' ' . $allowedTimeInStr);
+                    
+                    // Check if current time is before allowed time in
+                    if ($now->lt($allowedTimeInDateTime)) {
+                        $timeWindowText = $currentTimeWindow ? " ({$currentTimeWindow})" : "";
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Time In is not yet allowed{$timeWindowText}. Allowed from: {$allowedTimeInDateTime->format('h:i A')}. Current time: {$now->format('h:i A')}"
+                        ], 400);
+                    }
+                }
+            }
+            
+            // Validate: Block Time Out if current time is before allowed time out
+            if ($workstate == 1 && $lateRule) {
+                $allowedTimeOut = null;
+                
+                // Get appropriate allowed time out based on time window
+                if ($currentTimeWindow === 'morning') {
+                    $allowedTimeOut = $lateRule->time_out_morning;
+                } elseif ($currentTimeWindow === 'afternoon') {
+                    $allowedTimeOut = $lateRule->time_out_afternoon;
+                }
+                
+                if ($allowedTimeOut) {
+                    // Parse allowed time out as today's date + allowed time
+                    $allowedTimeOutStr = strlen($allowedTimeOut) == 5 ? $allowedTimeOut . ':00' : $allowedTimeOut;
+                    $allowedTimeOutDateTime = \Carbon\Carbon::parse($now->format('Y-m-d') . ' ' . $allowedTimeOutStr);
+                    
+                    // Check if current time is before allowed time out
+                    if ($now->lt($allowedTimeOutDateTime)) {
+                        $timeWindowText = $currentTimeWindow ? " ({$currentTimeWindow})" : "";
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Time Out is not yet allowed{$timeWindowText}. Allowed from: {$allowedTimeOutDateTime->format('h:i A')}. Current time: {$now->format('h:i A')}"
+                        ], 400);
+                    }
+                }
+            }
+            
+            // Save attendance
+            $attendanceResult = $this->saveAttendance($studentId, $eventId, $workstate, $event, $currentTimeWindow, $eventStartDateTime, $eventEndDateTime);
+            
+            return response()->json([
+                'success' => true,
+                'message' => $attendanceResult['message'],
+                'attendance' => $attendanceResult
+            ], 200);
+            
+        } catch (\Exception $e) {
+            Log::error('Record attendance error', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
     
     public function details($id)

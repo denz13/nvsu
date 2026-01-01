@@ -12,11 +12,19 @@ use App\Models\college;
 use App\Models\program;
 use App\Models\organization;
 use App\Models\announcement;
+use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\dashboard\DashboardStudentController;
 
 class DashboardController extends Controller
 {
     public function dashboard()
     {
+        // Check if logged-in user is a student (using students guard)
+        if (Auth::guard('students')->check()) {
+            return (new DashboardStudentController())->index();
+        }
+        
+        // Otherwise, show admin dashboard
         // Get total counts from database
         $stats = [
             'total_students' => students::count(),

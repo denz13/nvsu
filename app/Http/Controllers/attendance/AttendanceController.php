@@ -33,58 +33,34 @@ class AttendanceController extends Controller
             if ($eventId && $eventId !== 'all') {
                 $query->where('event_id', $eventId);
 
-                // Only include students who are assigned as participants for this event
+                // Try to filter by participant assignments if they exist
                 $assignmentIds = events_assign_participants::where('events_id', $eventId)
                     ->where('status', 'active')
                     ->pluck('id');
+                    
                 if ($assignmentIds->count() > 0) {
                     $participantStudentIds = events_list_of_participants::whereIn('events_assign_participants_id', $assignmentIds)
                         ->where('status', 'active')
                         ->pluck('students_id');
-                    // If there are participants defined, limit results to them; otherwise, return empty set
+                    
+                    // Only filter by participants if there are assigned participants
                     if ($participantStudentIds->count() > 0) {
                         $query->whereIn('student_id', $participantStudentIds);
-                    } else {
-                        return response()->json([
-                            'success' => true,
-                            'attendances' => [],
-                            'pagination' => [
-                                'current_page' => (int)$request->input('page', 1),
-                                'per_page' => (int)$request->input('per_page', 10),
-                                'total' => 0,
-                                'last_page' => 0,
-                                'from' => 0,
-                                'to' => 0,
-                                'base_url' => '/attendance/list?page=',
-                                'event_param' => "&event_id={$eventId}",
-                                'has_more' => false,
-                                'on_first_page' => true,
-                            ]
-                        ]);
                     }
-                } else {
-                    // No assignments for this event; return empty set
-                    return response()->json([
-                        'success' => true,
-                        'attendances' => [],
-                        'pagination' => [
-                            'current_page' => (int)$request->input('page', 1),
-                            'per_page' => (int)$request->input('per_page', 10),
-                            'total' => 0,
-                            'last_page' => 0,
-                            'from' => 0,
-                            'to' => 0,
-                            'base_url' => '/attendance/list?page=',
-                            'event_param' => "&event_id={$eventId}",
-                            'has_more' => false,
-                            'on_first_page' => true,
-                        ]
-                    ]);
+                    // If no participants but there are assignments, show all attendance for this event
                 }
+                // If no assignments at all, show all attendance records for this event (no additional filter)
             }
             
             // Get all records first (needed for grouping)
             $attendances = $query->get();
+            
+            // Debug: Check what we're getting
+            \Log::info('Attendance Query Results', [
+                'event_id' => $eventId,
+                'count' => $attendances->count(),
+                'sample' => $attendances->take(2)->toArray()
+            ]);
             
             // Group by student_id and event_id - combine time in and time out
             $groupedAttendances = [];

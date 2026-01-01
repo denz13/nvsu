@@ -100,15 +100,70 @@ window.editStudent = function(studentId) {
                 if (modalElement && modalElement.classList.contains('show')) {
                     clearInterval(checkModal);
                     setTimeout(() => {
-                        // Set dropdown values
+                        // Set college first, then load programs and set the selected program
                         if (document.getElementById('edit-college-id')) {
                             document.getElementById('edit-college-id').value = student.college_id;
-                        }
-                        if (document.getElementById('edit-program-id')) {
-                            document.getElementById('edit-program-id').value = student.program_id;
-                        }
-                        if (document.getElementById('edit-organization-id')) {
-                            document.getElementById('edit-organization-id').value = student.organization_id || '';
+                            
+                            // Load programs for the selected college, then set the program value
+                            const editProgramSelect = document.getElementById('edit-program-id');
+                            const editOrganizationSelect = document.getElementById('edit-organization-id');
+                            
+                            if (editProgramSelect && student.college_id) {
+                                fetch(`/students/programs-by-college/${student.college_id}`, {
+                                    method: 'GET',
+                                    headers: {
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                        'Accept': 'application/json'
+                                    }
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        editProgramSelect.innerHTML = '<option value="">Select Program</option>';
+                                        data.data.forEach(program => {
+                                            const option = document.createElement('option');
+                                            option.value = program.id;
+                                            option.textContent = program.program_name;
+                                            if (program.id == student.program_id) {
+                                                option.selected = true;
+                                            }
+                                            editProgramSelect.appendChild(option);
+                                        });
+                                        
+                                        // After programs are loaded, load organizations for the selected program
+                                        if (editOrganizationSelect && student.program_id) {
+                                            fetch(`/students/organizations-by-program/${student.program_id}`, {
+                                                method: 'GET',
+                                                headers: {
+                                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                                    'Accept': 'application/json'
+                                                }
+                                            })
+                                            .then(response => response.json())
+                                            .then(data => {
+                                                if (data.success) {
+                                                    editOrganizationSelect.innerHTML = '<option value="">N/A</option>';
+                                                    data.data.forEach(organization => {
+                                                        const option = document.createElement('option');
+                                                        option.value = organization.id;
+                                                        option.textContent = organization.organization_name;
+                                                        if (organization.id == student.organization_id) {
+                                                            option.selected = true;
+                                                        }
+                                                        editOrganizationSelect.appendChild(option);
+                                                    });
+                                                }
+                                            })
+                                            .catch(error => {
+                                                console.error('Error loading organizations:', error);
+                                            });
+                                        }
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error loading programs:', error);
+                                });
+                            }
                         }
                         
                         // Set text inputs
@@ -295,8 +350,124 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Dynamic program filtering based on college - Disabled for now
-// You can implement this later with an API endpoint
+// Dynamic program filtering based on college
+function updateProgramDropdown(collegeId, programDropdown, organizationDropdown) {
+    if (!collegeId) {
+        programDropdown.innerHTML = '<option value="">Select Program</option>';
+        if (organizationDropdown) {
+            organizationDropdown.innerHTML = '<option value="">N/A</option>';
+        }
+        return;
+    }
+    
+    // Show loading state
+    programDropdown.innerHTML = '<option value="">Loading programs...</option>';
+    if (organizationDropdown) {
+        organizationDropdown.innerHTML = '<option value="">N/A</option>';
+    }
+    
+    fetch(`/students/programs-by-college/${collegeId}`, {
+        method: 'GET',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            programDropdown.innerHTML = '<option value="">Select Program</option>';
+            data.data.forEach(program => {
+                const option = document.createElement('option');
+                option.value = program.id;
+                option.textContent = program.program_name;
+                programDropdown.appendChild(option);
+            });
+        } else {
+            programDropdown.innerHTML = '<option value="">Error loading programs</option>';
+            showError('Error!', 'Failed to load programs.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        programDropdown.innerHTML = '<option value="">Error loading programs</option>';
+        showError('Error!', 'Failed to load programs.');
+    });
+}
+
+// Dynamic organization filtering based on program
+function updateOrganizationDropdown(programId, organizationDropdown) {
+    if (!programId) {
+        organizationDropdown.innerHTML = '<option value="">N/A</option>';
+        return;
+    }
+    
+    // Show loading state
+    organizationDropdown.innerHTML = '<option value="">Loading organizations...</option>';
+    
+    fetch(`/students/organizations-by-program/${programId}`, {
+        method: 'GET',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            organizationDropdown.innerHTML = '<option value="">N/A</option>';
+            data.data.forEach(organization => {
+                const option = document.createElement('option');
+                option.value = organization.id;
+                option.textContent = organization.organization_name;
+                organizationDropdown.appendChild(option);
+            });
+        } else {
+            organizationDropdown.innerHTML = '<option value="">N/A</option>';
+            showError('Error!', 'Failed to load organizations.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        organizationDropdown.innerHTML = '<option value="">N/A</option>';
+        showError('Error!', 'Failed to load organizations.');
+    });
+}
+
+// Add event listener for college and program selection in Add Student modal
+document.addEventListener('DOMContentLoaded', function() {
+    const addCollegeSelect = document.querySelector('#add-product-form [name="college_id"]');
+    const addProgramSelect = document.querySelector('#add-product-form [name="program_id"]');
+    const addOrganizationSelect = document.querySelector('#add-product-form [name="organization_id"]');
+    
+    if (addCollegeSelect && addProgramSelect) {
+        addCollegeSelect.addEventListener('change', function() {
+            updateProgramDropdown(this.value, addProgramSelect, addOrganizationSelect);
+        });
+    }
+    
+    if (addProgramSelect && addOrganizationSelect) {
+        addProgramSelect.addEventListener('change', function() {
+            updateOrganizationDropdown(this.value, addOrganizationSelect);
+        });
+    }
+    
+    const editCollegeSelect = document.getElementById('edit-college-id');
+    const editProgramSelect = document.getElementById('edit-program-id');
+    const editOrganizationSelect = document.getElementById('edit-organization-id');
+    
+    if (editCollegeSelect && editProgramSelect) {
+        editCollegeSelect.addEventListener('change', function() {
+            updateProgramDropdown(this.value, editProgramSelect, editOrganizationSelect);
+        });
+    }
+    
+    if (editProgramSelect && editOrganizationSelect) {
+        editProgramSelect.addEventListener('change', function() {
+            updateOrganizationDropdown(this.value, editOrganizationSelect);
+        });
+    }
+});
 
 // Generate Barcode for Student Function - Show Modal
 window.generateBarcodeForStudent = function(studentId, studentName) {

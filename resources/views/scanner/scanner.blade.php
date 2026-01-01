@@ -96,6 +96,74 @@
     <!-- END: Search Results -->
 </div>
 
+<!-- BEGIN: Attendance Selection Modal -->
+<div id="attendanceSelectionModal" class="modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="font-medium text-base mr-auto">Select Attendance Type</h2>
+                <a href="javascript:;" data-tw-dismiss="modal">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x w-8 h-8 text-slate-400">
+                        <path d="M18 6L6 18"></path>
+                        <path d="M6 6l12 12"></path>
+                    </svg>
+                </a>
+            </div>
+            <div class="modal-body p-6">
+                <div id="attendanceModalContent">
+                    <!-- Student info and selection -->
+                    <div class="flex items-center mb-6 pb-6 border-b border-slate-200">
+                        <div class="w-20 h-20 rounded-full overflow-hidden mr-4">
+                            <img id="modal-student-photo" src="/dist/images/preview-7.jpg" alt="Student Photo" class="w-full h-full object-cover">
+                        </div>
+                        <div>
+                            <h3 id="modal-student-name" class="font-medium text-lg">Student Name</h3>
+                            <p id="modal-student-id" class="text-slate-500 text-sm">ID: </p>
+                            <p id="modal-student-college" class="text-slate-400 text-xs mt-1">College</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Existing attendance records -->
+                    <div id="existing-attendance-info" class="mb-6">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                    
+                    <!-- Late penalty info -->
+                    <div id="late-penalty-info" class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded hidden">
+                        <p class="text-sm text-yellow-800 font-medium">⚠️ Late Penalty Warning</p>
+                        <p class="text-xs text-yellow-700 mt-1">A penalty fee will be charged if you proceed.</p>
+                    </div>
+                    
+                    <!-- Selection buttons -->
+                    <div class="grid grid-cols-2 gap-4 mt-6">
+                        <button type="button" id="btn-time-in" class="btn btn-lg btn-primary py-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 mx-auto mb-2">
+                                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            <div class="font-medium text-base">Time In</div>
+                            <div class="text-xs opacity-70 mt-1">Record arrival</div>
+                        </button>
+                        <button type="button" id="btn-time-out" class="btn btn-lg btn-success py-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 mx-auto mb-2">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                <polyline points="16 17 21 12 16 7"></polyline>
+                                <line x1="21" y1="12" x2="9" y2="12"></line>
+                            </svg>
+                            <div class="font-medium text-base">Time Out</div>
+                            <div class="text-xs opacity-70 mt-1">Record departure</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" data-tw-dismiss="modal" class="btn btn-secondary w-20 mr-1">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- END: Attendance Selection Modal -->
+
 <!-- BEGIN: Student Details Modal -->
 <div id="studentDetailsModal" class="modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">

@@ -6,6 +6,9 @@ let selectedEventId = 'all';
 function filterByEvent(eventId) {
     selectedEventId = eventId;
     
+    // Debug: Log which event is being filtered
+    console.log('Filtering by event:', eventId);
+    
     // Update UI - remove active class from all
     document.querySelectorAll('.event-item').forEach(item => {
         item.classList.remove('bg-primary', 'text-white');
@@ -80,6 +83,10 @@ function loadAttendance(eventId, page = 1, perPage = 10) {
         url += `&event_id=${eventId}`;
     }
     
+    // Debug: Log the URL being called
+    console.log('Fetching attendance from:', url);
+    console.log('Event ID:', eventId);
+    
     // Fetch attendance data
     fetch(url, {
         method: 'GET',
@@ -95,6 +102,10 @@ function loadAttendance(eventId, page = 1, perPage = 10) {
         return response.json();
     })
     .then(data => {
+        // Debug: Log the response data
+        console.log('API Response:', data);
+        console.log('Attendances count:', data.attendances ? data.attendances.length : 0);
+        
         // Hide loading - remove both class and inline style
         if (loadingDiv) {
             loadingDiv.classList.add('hidden');
@@ -129,6 +140,7 @@ function loadAttendance(eventId, page = 1, perPage = 10) {
     })
     .catch(error => {
         console.error('Error loading attendance:', error);
+        console.error('Error details:', error.message, error.stack);
         // Hide loading on error
         if (loadingDiv) {
             loadingDiv.classList.add('hidden');
@@ -215,10 +227,10 @@ function createAttendanceCard(attendance) {
         `;
     }
     
-    // Build penalties display
-    const absenceFine = attendance.absence_fine || 0;
-    const latePenalty = attendance.late_penalty || 0;
-    const totalPenalty = attendance.total_penalty || 0;
+    // Build penalties display - ensure numbers
+    const absenceFine = parseFloat(attendance.absence_fine) || 0;
+    const latePenalty = parseFloat(attendance.late_penalty) || 0;
+    const totalPenalty = parseFloat(attendance.total_penalty) || 0;
     let penaltiesDisplay = '';
     if (totalPenalty > 0 || attendance.status === 'Absent') {
         penaltiesDisplay = `
