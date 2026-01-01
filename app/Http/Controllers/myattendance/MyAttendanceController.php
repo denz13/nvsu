@@ -234,9 +234,10 @@ class MyAttendanceController extends Controller
                             ->first();
                         
                         // Get all attendance records for this event to check partial absences
-                        $eventAttendances = $attendancesQuery->where('event_id', $event->id)
-                            ->where('student_id', $studentId)
-                            ->get();
+                        // Filter from the already-fetched $attendances collection instead of re-querying
+                        $eventAttendances = $attendances->filter(function($att) use ($event, $studentId) {
+                            return $att->event_id == $event->id && $att->student_id == $studentId;
+                        });
                         
                         $absenceFine = 0;
                         $latePenalty = 0;
@@ -285,6 +286,8 @@ class MyAttendanceController extends Controller
                         
                         // Calculate late penalties
                         // Check each attendance record against its corresponding period's allowed time
+                        
+                        
                         if ($lateRule && !$eventAttendances->isEmpty()) {
                             // Morning period check
                             if ($scheduleType === 'whole_day' || $scheduleType === 'half_day_morning') {
@@ -299,11 +302,17 @@ class MyAttendanceController extends Controller
                                     }
                                     $allowedTimeIn = \Carbon\Carbon::parse($morningStart->format('Y-m-d') . ' ' . $timeInMorningStr);
                                     
-                                    // Check time in records within morning period
-                                    $morningTimeIns = $eventAttendances->where('workstate', 0)->filter(function($att) use ($morningStart, $morningEnd) {
-                                        return $att->log_time && 
-                                               $att->log_time->gte($morningStart) && 
-                                               $att->log_time->lte($morningEnd);
+                                    // Check time in records - include ALL records on same date >= morningStart
+                                    // Don't restrict to morningEnd to catch late scans that exceed event start time
+                                    // Filter for workstate 0 (time in) first, then filter by date and time
+                                    $morningTimeIns = $eventAttendances->filter(function($att) use ($morningStart) {
+                                        // First check if it's a time in record (workstate = 0)
+                                        if ($att->workstate != 0 && $att->workstate != "0") return false;
+                                        
+                                        if (!$att->log_time) return false;
+                                        // Include all records on the same date >= morningStart
+                                        return $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d') &&
+                                               $att->log_time->gte($morningStart);
                                     })->sortBy('log_time');
                                     
                                     if ($morningTimeIns->isNotEmpty()) {
@@ -342,9 +351,13 @@ class MyAttendanceController extends Controller
                                     }
                                     $allowedTimeIn = \Carbon\Carbon::parse($afternoonStart->format('Y-m-d') . ' ' . $timeInAfternoonStr);
                                     
-                                    // Check time in records - include ALL records on same date for whole_day events
-                                    // For half_day_afternoon, only check records within afternoon period
-                                    $afternoonTimeIns = $eventAttendances->where('workstate', 0)->filter(function($att) use ($afternoonStart, $afternoonEnd, $scheduleType, $morningEndForAfternoon) {
+                                    // Check time in records - include ALL records on same date >= afternoonStart
+                                    // Don't restrict to afternoonEnd to catch late scans that exceed event start time
+                                    // Filter for workstate 0 (time in) first, then filter by date and time
+                                    $afternoonTimeIns = $eventAttendances->filter(function($att) use ($afternoonStart, $scheduleType, $morningEndForAfternoon) {
+                                        // First check if it's a time in record (workstate = 0)
+                                        if ($att->workstate != 0 && $att->workstate != "0") return false;
+                                        
                                         if (!$att->log_time) return false;
                                         
                                         $isOnAfternoonDate = $att->log_time->format('Y-m-d') === $afternoonStart->format('Y-m-d');
@@ -357,8 +370,9 @@ class MyAttendanceController extends Controller
                                             }
                                             return $isOnAfternoonDate;
                                         } else {
-                                            // For half_day_afternoon: only check records within afternoon period
-                                            return $att->log_time->gte($afternoonStart) && $att->log_time->lte($afternoonEnd);
+                                            // For half_day_afternoon: include all records on same date >= afternoonStart
+                                            // Don't restrict to afternoonEnd to catch late scans
+                                            return $isOnAfternoonDate && $att->log_time->gte($afternoonStart);
                                         }
                                     })->sortBy('log_time');
                                     
@@ -662,11 +676,13 @@ class MyAttendanceController extends Controller
                                         }
                                         $allowedTimeIn = \Carbon\Carbon::parse($morningStart->format('Y-m-d') . ' ' . $timeInMorningStr);
                                         
-                                        // Check time in records within morning period
-                                        $morningTimeIns = $eventAttendances->where('workstate', 0)->filter(function($att) use ($morningStart, $morningEnd) {
-                                            return $att->log_time && 
-                                                   $att->log_time->gte($morningStart) && 
-                                                   $att->log_time->lte($morningEnd);
+                                        // Check time in records - include ALL records on same date >= morningStart
+                                        // Don't restrict to morningEnd to catch late scans that exceed event start time
+                                        $morningTimeIns = $eventAttendances->where('workstate', 0)->filter(function($att) use ($morningStart) {
+                                            if (!$att->log_time) return false;
+                                            // Include all records on the same date >= morningStart
+                                            return $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d') &&
+                                                   $att->log_time->gte($morningStart);
                                         })->sortBy('log_time');
                                         
                                         if ($morningTimeIns->isNotEmpty()) {
@@ -705,9 +721,9 @@ class MyAttendanceController extends Controller
                                         }
                                         $allowedTimeIn = \Carbon\Carbon::parse($afternoonStart->format('Y-m-d') . ' ' . $timeInAfternoonStr);
                                         
-                                        // Check time in records - include ALL records on same date for whole_day events
-                                        // For half_day_afternoon, only check records within afternoon period
-                                        $afternoonTimeIns = $eventAttendances->where('workstate', 0)->filter(function($att) use ($afternoonStart, $afternoonEnd, $scheduleType, $morningEndForAfternoon) {
+                                        // Check time in records - include ALL records on same date >= afternoonStart
+                                        // Don't restrict to afternoonEnd to catch late scans that exceed event start time
+                                        $afternoonTimeIns = $eventAttendances->where('workstate', 0)->filter(function($att) use ($afternoonStart, $scheduleType, $morningEndForAfternoon) {
                                             if (!$att->log_time) return false;
                                             
                                             $isOnAfternoonDate = $att->log_time->format('Y-m-d') === $afternoonStart->format('Y-m-d');
@@ -720,8 +736,9 @@ class MyAttendanceController extends Controller
                                                 }
                                                 return $isOnAfternoonDate;
                                             } else {
-                                                // For half_day_afternoon: only check records within afternoon period
-                                                return $att->log_time->gte($afternoonStart) && $att->log_time->lte($afternoonEnd);
+                                                // For half_day_afternoon: include all records on same date >= afternoonStart
+                                                // Don't restrict to afternoonEnd to catch late scans
+                                                return $isOnAfternoonDate && $att->log_time->gte($afternoonStart);
                                             }
                                         })->sortBy('log_time');
                                         
@@ -1103,11 +1120,13 @@ class MyAttendanceController extends Controller
                             }
                             $allowedTimeIn = \Carbon\Carbon::parse($morningStart->format('Y-m-d') . ' ' . $timeInMorningStr);
                             
-                            // Check time in records within morning period
-                            $morningTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($morningStart, $morningEnd) {
-                                return $att->log_time && 
-                                       $att->log_time->gte($morningStart) && 
-                                       $att->log_time->lte($morningEnd);
+                            // Check time in records - include ALL records on same date >= morningStart
+                            // Don't restrict to morningEnd to catch late scans that exceed event start time
+                            $morningTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($morningStart) {
+                                if (!$att->log_time) return false;
+                                // Include all records on the same date >= morningStart
+                                return $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d') &&
+                                       $att->log_time->gte($morningStart);
                             })->sortBy('log_time');
                             
                             if ($morningTimeIns->isNotEmpty()) {
@@ -1146,9 +1165,9 @@ class MyAttendanceController extends Controller
                             }
                             $allowedTimeIn = \Carbon\Carbon::parse($afternoonStart->format('Y-m-d') . ' ' . $timeInAfternoonStr);
                             
-                            // Check time in records - include ALL records on same date for whole_day events
-                            // For half_day_afternoon, only check records within afternoon period
-                            $afternoonTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($afternoonStart, $afternoonEnd, $scheduleType, $morningEndForAfternoon) {
+                            // Check time in records - include ALL records on same date >= afternoonStart
+                            // Don't restrict to afternoonEnd to catch late scans that exceed event start time
+                            $afternoonTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($afternoonStart, $scheduleType, $morningEndForAfternoon) {
                                 if (!$att->log_time) return false;
                                 
                                 $isOnAfternoonDate = $att->log_time->format('Y-m-d') === $afternoonStart->format('Y-m-d');
@@ -1161,8 +1180,9 @@ class MyAttendanceController extends Controller
                                     }
                                     return $isOnAfternoonDate;
                                 } else {
-                                    // For half_day_afternoon: only check records within afternoon period
-                                    return $att->log_time->gte($afternoonStart) && $att->log_time->lte($afternoonEnd);
+                                    // For half_day_afternoon: include all records on same date >= afternoonStart
+                                    // Don't restrict to afternoonEnd to catch late scans
+                                    return $isOnAfternoonDate && $att->log_time->gte($afternoonStart);
                                 }
                             })->sortBy('log_time');
                             
@@ -1425,10 +1445,13 @@ class MyAttendanceController extends Controller
                                 }
                                 $allowedTimeIn = \Carbon\Carbon::parse($morningStart->format('Y-m-d') . ' ' . $timeInMorningStr);
                                 
-                                $morningTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($morningStart, $morningEnd) {
-                                    return $att->log_time && 
-                                           $att->log_time->gte($morningStart) && 
-                                           $att->log_time->lte($morningEnd);
+                                // Check time in records - include ALL records on same date >= morningStart
+                                // Don't restrict to morningEnd to catch late scans that exceed event start time
+                                $morningTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($morningStart) {
+                                    if (!$att->log_time) return false;
+                                    // Include all records on the same date >= morningStart
+                                    return $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d') &&
+                                           $att->log_time->gte($morningStart);
                                 })->sortBy('log_time');
                                 
                                 if ($morningTimeIns->isNotEmpty()) {
@@ -1465,9 +1488,9 @@ class MyAttendanceController extends Controller
                                 }
                                 $allowedTimeIn = \Carbon\Carbon::parse($afternoonStart->format('Y-m-d') . ' ' . $timeInAfternoonStr);
                                 
-                                // Check time in records - include ALL records on same date for whole_day events
-                                // For half_day_afternoon, only check records within afternoon period
-                                $afternoonTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($afternoonStart, $afternoonEnd, $scheduleType, $morningEndForAfternoon) {
+                                // Check time in records - include ALL records on same date >= afternoonStart
+                                // Don't restrict to afternoonEnd to catch late scans that exceed event start time
+                                $afternoonTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($afternoonStart, $scheduleType, $morningEndForAfternoon) {
                                     if (!$att->log_time) return false;
                                     
                                     $isOnAfternoonDate = $att->log_time->format('Y-m-d') === $afternoonStart->format('Y-m-d');
@@ -1480,8 +1503,9 @@ class MyAttendanceController extends Controller
                                         }
                                         return $isOnAfternoonDate;
                                     } else {
-                                        // For half_day_afternoon: only check records within afternoon period
-                                        return $att->log_time->gte($afternoonStart) && $att->log_time->lte($afternoonEnd);
+                                        // For half_day_afternoon: include all records on same date >= afternoonStart
+                                        // Don't restrict to afternoonEnd to catch late scans
+                                        return $isOnAfternoonDate && $att->log_time->gte($afternoonStart);
                                     }
                                 })->sortBy('log_time');
                                 
