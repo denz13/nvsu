@@ -14,6 +14,39 @@ use App\Models\generated_receipt;
 
 class MyAttendanceController extends Controller
 {
+    /**
+     * Validate if a datetime value is valid for database insertion
+     */
+    private function isValidDateTime($datetime)
+    {
+        if (empty($datetime) || is_null($datetime)) {
+            return false;
+        }
+        
+        // Check for invalid MySQL datetime values
+        if (is_string($datetime)) {
+            $datetime = trim($datetime);
+            if ($datetime === '' || 
+                $datetime === '0000-00-00 00:00:00' || 
+                $datetime === '0000-00-00' ||
+                strpos($datetime, '0000-00-00') !== false) {
+                return false;
+            }
+        }
+        
+        // Try to parse with Carbon to validate
+        try {
+            $carbon = \Carbon\Carbon::parse($datetime);
+            // Check if it's a valid date (not 0000-00-00)
+            if ($carbon->year == 0 || $carbon->year < 1970) {
+                return false;
+            }
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
     public function myAttendance()
     {
         // Only students can access this page
@@ -1635,7 +1668,7 @@ class MyAttendanceController extends Controller
                         if ($scheduleType === 'whole_day') {
                             if (!$hasMorningAttendance && !$hasAfternoonAttendance) {
                                 // Whole day absent: create morning start (IN) and afternoon end (OUT)
-                                if ($event->start_datetime_morning) {
+                                if ($this->isValidDateTime($event->start_datetime_morning)) {
                                     attendance_payments_time_schedule::create([
                                         'attendance_payments_id' => $payment->id,
                                         'type_of_schedule_pay' => 'morning',
@@ -1644,7 +1677,7 @@ class MyAttendanceController extends Controller
                                         'status' => 'active'
                                     ]);
                                 }
-                                if ($event->end_datetime_afternoon) {
+                                if ($this->isValidDateTime($event->end_datetime_afternoon)) {
                                     attendance_payments_time_schedule::create([
                                         'attendance_payments_id' => $payment->id,
                                         'type_of_schedule_pay' => 'afternoon',
@@ -1655,7 +1688,7 @@ class MyAttendanceController extends Controller
                                 }
                             } elseif (!$hasMorningAttendance && $hasAfternoonAttendance) {
                                 // Absent in morning period only: save morning start (IN) and morning end (OUT)
-                                if ($event->start_datetime_morning) {
+                                if ($this->isValidDateTime($event->start_datetime_morning)) {
                                     attendance_payments_time_schedule::create([
                                         'attendance_payments_id' => $payment->id,
                                         'type_of_schedule_pay' => 'morning',
@@ -1664,7 +1697,7 @@ class MyAttendanceController extends Controller
                                         'status' => 'active'
                                     ]);
                                 }
-                                if ($event->end_datetime_morning) {
+                                if ($this->isValidDateTime($event->end_datetime_morning)) {
                                     attendance_payments_time_schedule::create([
                                         'attendance_payments_id' => $payment->id,
                                         'type_of_schedule_pay' => 'morning',
@@ -1675,7 +1708,7 @@ class MyAttendanceController extends Controller
                                 }
                             } elseif ($hasMorningAttendance && !$hasAfternoonAttendance) {
                                 // Absent in afternoon period only: save afternoon start (IN) and afternoon end (OUT)
-                                if ($event->start_datetime_afternoon) {
+                                if ($this->isValidDateTime($event->start_datetime_afternoon)) {
                                     attendance_payments_time_schedule::create([
                                         'attendance_payments_id' => $payment->id,
                                         'type_of_schedule_pay' => 'afternoon',
@@ -1684,7 +1717,7 @@ class MyAttendanceController extends Controller
                                         'status' => 'active'
                                     ]);
                                 }
-                                if ($event->end_datetime_afternoon) {
+                                if ($this->isValidDateTime($event->end_datetime_afternoon)) {
                                     attendance_payments_time_schedule::create([
                                         'attendance_payments_id' => $payment->id,
                                         'type_of_schedule_pay' => 'afternoon',
@@ -1697,7 +1730,7 @@ class MyAttendanceController extends Controller
                         } elseif ($scheduleType === 'half_day_morning') {
                             // Half day morning absent: save morning start (IN) and morning end (OUT)
                             if (!$hasMorningAttendance) {
-                                if ($event->start_datetime_morning) {
+                                if ($this->isValidDateTime($event->start_datetime_morning)) {
                                     attendance_payments_time_schedule::create([
                                         'attendance_payments_id' => $payment->id,
                                         'type_of_schedule_pay' => 'morning',
@@ -1706,7 +1739,7 @@ class MyAttendanceController extends Controller
                                         'status' => 'active'
                                     ]);
                                 }
-                                if ($event->end_datetime_morning) {
+                                if ($this->isValidDateTime($event->end_datetime_morning)) {
                                     attendance_payments_time_schedule::create([
                                         'attendance_payments_id' => $payment->id,
                                         'type_of_schedule_pay' => 'morning',
@@ -1719,7 +1752,7 @@ class MyAttendanceController extends Controller
                         } elseif ($scheduleType === 'half_day_afternoon') {
                             // Half day afternoon absent: save afternoon start (IN) and afternoon end (OUT)
                             if (!$hasAfternoonAttendance) {
-                                if ($event->start_datetime_afternoon) {
+                                if ($this->isValidDateTime($event->start_datetime_afternoon)) {
                                     attendance_payments_time_schedule::create([
                                         'attendance_payments_id' => $payment->id,
                                         'type_of_schedule_pay' => 'afternoon',
@@ -1728,7 +1761,7 @@ class MyAttendanceController extends Controller
                                         'status' => 'active'
                                     ]);
                                 }
-                                if ($event->end_datetime_afternoon) {
+                                if ($this->isValidDateTime($event->end_datetime_afternoon)) {
                                     attendance_payments_time_schedule::create([
                                         'attendance_payments_id' => $payment->id,
                                         'type_of_schedule_pay' => 'afternoon',
@@ -1746,8 +1779,8 @@ class MyAttendanceController extends Controller
                     if ($latePenalty > 0 && isset($lateRule) && $lateRule) {
                         // Check morning time in violations
                         if ($scheduleType === 'whole_day' || $scheduleType === 'half_day_morning') {
-                            $morningStart = $event->start_datetime_morning ? \Carbon\Carbon::parse($event->start_datetime_morning) : null;
-                            $morningEnd = $event->end_datetime_morning ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
+                            $morningStart = ($this->isValidDateTime($event->start_datetime_morning)) ? \Carbon\Carbon::parse($event->start_datetime_morning) : null;
+                            $morningEnd = ($this->isValidDateTime($event->end_datetime_morning)) ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
 
                             if ($morningStart && $morningEnd && $lateRule->time_in_morning) {
                                 $timeInMorningStr = $lateRule->time_in_morning;
@@ -1757,7 +1790,7 @@ class MyAttendanceController extends Controller
                                 $allowedTimeIn = \Carbon\Carbon::parse($morningStart->format('Y-m-d') . ' ' . $timeInMorningStr);
 
                                 foreach ($attendanceRecords as $record) {
-                                    if (isset($record->workstate_code) && $record->workstate_code == 0 && isset($record->log_time)) {
+                                    if (isset($record->workstate_code) && $record->workstate_code == 0 && isset($record->log_time) && $this->isValidDateTime($record->log_time)) {
                                         $logTime = \Carbon\Carbon::parse($record->log_time);
                                         if ($logTime->gte($morningStart) && $logTime->lte($morningEnd) && $logTime->gt($allowedTimeIn)) {
                                             attendance_payments_time_schedule::create([
@@ -1775,8 +1808,8 @@ class MyAttendanceController extends Controller
 
                         // Check morning time out violations
                         if ($scheduleType === 'whole_day' || $scheduleType === 'half_day_morning') {
-                            $morningStart = $event->start_datetime_morning ? \Carbon\Carbon::parse($event->start_datetime_morning) : null;
-                            $morningEnd = $event->end_datetime_morning ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
+                            $morningStart = ($this->isValidDateTime($event->start_datetime_morning)) ? \Carbon\Carbon::parse($event->start_datetime_morning) : null;
+                            $morningEnd = ($this->isValidDateTime($event->end_datetime_morning)) ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
 
                             if ($morningStart && $morningEnd && $lateRule->time_out_morning) {
                                 $timeOutMorningStr = $lateRule->time_out_morning;
@@ -1786,7 +1819,7 @@ class MyAttendanceController extends Controller
                                 $allowedTimeOut = \Carbon\Carbon::parse($morningStart->format('Y-m-d') . ' ' . $timeOutMorningStr);
 
                                 foreach ($attendanceRecords as $record) {
-                                    if (isset($record->workstate_code) && $record->workstate_code != 0 && isset($record->log_time)) {
+                                    if (isset($record->workstate_code) && $record->workstate_code != 0 && isset($record->log_time) && $this->isValidDateTime($record->log_time)) {
                                         $logTime = \Carbon\Carbon::parse($record->log_time);
                                         if ($logTime->gte($morningStart) && $logTime->lte($morningEnd) && $logTime->gt($allowedTimeOut)) {
                                             attendance_payments_time_schedule::create([
@@ -1804,8 +1837,8 @@ class MyAttendanceController extends Controller
 
                         // Check afternoon time in violations
                         if ($scheduleType === 'whole_day' || $scheduleType === 'half_day_afternoon') {
-                            $afternoonStart = $event->start_datetime_afternoon ? \Carbon\Carbon::parse($event->start_datetime_afternoon) : null;
-                            $afternoonEnd = $event->end_datetime_afternoon ? \Carbon\Carbon::parse($event->end_datetime_afternoon) : null;
+                            $afternoonStart = ($this->isValidDateTime($event->start_datetime_afternoon)) ? \Carbon\Carbon::parse($event->start_datetime_afternoon) : null;
+                            $afternoonEnd = ($this->isValidDateTime($event->end_datetime_afternoon)) ? \Carbon\Carbon::parse($event->end_datetime_afternoon) : null;
 
                             if ($afternoonStart && $afternoonEnd && $lateRule->time_in_afternoon) {
                                 $timeInAfternoonStr = $lateRule->time_in_afternoon;
@@ -1815,7 +1848,7 @@ class MyAttendanceController extends Controller
                                 $allowedTimeIn = \Carbon\Carbon::parse($afternoonStart->format('Y-m-d') . ' ' . $timeInAfternoonStr);
 
                                 foreach ($attendanceRecords as $record) {
-                                    if (isset($record->workstate_code) && $record->workstate_code == 0 && isset($record->log_time)) {
+                                    if (isset($record->workstate_code) && $record->workstate_code == 0 && isset($record->log_time) && $this->isValidDateTime($record->log_time)) {
                                         $logTime = \Carbon\Carbon::parse($record->log_time);
                                         if ($logTime->gte($afternoonStart) && $logTime->lte($afternoonEnd) && $logTime->gt($allowedTimeIn)) {
                                             attendance_payments_time_schedule::create([
@@ -1833,8 +1866,8 @@ class MyAttendanceController extends Controller
 
                         // Check afternoon time out violations
                         if ($scheduleType === 'whole_day' || $scheduleType === 'half_day_afternoon') {
-                            $afternoonStart = $event->start_datetime_afternoon ? \Carbon\Carbon::parse($event->start_datetime_afternoon) : null;
-                            $afternoonEnd = $event->end_datetime_afternoon ? \Carbon\Carbon::parse($event->end_datetime_afternoon) : null;
+                            $afternoonStart = ($this->isValidDateTime($event->start_datetime_afternoon)) ? \Carbon\Carbon::parse($event->start_datetime_afternoon) : null;
+                            $afternoonEnd = ($this->isValidDateTime($event->end_datetime_afternoon)) ? \Carbon\Carbon::parse($event->end_datetime_afternoon) : null;
 
                             if ($afternoonStart && $afternoonEnd && $lateRule->time_out_afternoon) {
                                 $timeOutAfternoonStr = $lateRule->time_out_afternoon;
@@ -1844,7 +1877,7 @@ class MyAttendanceController extends Controller
                                 $allowedTimeOut = \Carbon\Carbon::parse($afternoonStart->format('Y-m-d') . ' ' . $timeOutAfternoonStr);
 
                                 foreach ($attendanceRecords as $record) {
-                                    if (isset($record->workstate_code) && $record->workstate_code != 0 && isset($record->log_time)) {
+                                    if (isset($record->workstate_code) && $record->workstate_code != 0 && isset($record->log_time) && $this->isValidDateTime($record->log_time)) {
                                         $logTime = \Carbon\Carbon::parse($record->log_time);
                                         if ($logTime->gte($afternoonStart) && $logTime->lte($afternoonEnd) && $logTime->gt($allowedTimeOut)) {
                                             attendance_payments_time_schedule::create([
