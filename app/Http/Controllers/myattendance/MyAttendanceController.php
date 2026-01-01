@@ -1796,7 +1796,7 @@ class MyAttendanceController extends Controller
                                             attendance_payments_time_schedule::create([
                                                 'attendance_payments_id' => $payment->id,
                                                 'type_of_schedule_pay' => 'morning',
-                                                'log_time' => 0, // 0 for time in
+                                                'log_time' => $record->log_time, // Use actual datetime from attendance record
                                                 'workstate' => 0,
                                                 'status' => 'active'
                                             ]);
@@ -1825,7 +1825,7 @@ class MyAttendanceController extends Controller
                                             attendance_payments_time_schedule::create([
                                                 'attendance_payments_id' => $payment->id,
                                                 'type_of_schedule_pay' => 'morning',
-                                                'log_time' => 1, // 1 for time out
+                                                'log_time' => $record->log_time, // Use actual datetime from attendance record
                                                 'workstate' => 1,
                                                 'status' => 'active'
                                             ]);
@@ -1854,7 +1854,7 @@ class MyAttendanceController extends Controller
                                             attendance_payments_time_schedule::create([
                                                 'attendance_payments_id' => $payment->id,
                                                 'type_of_schedule_pay' => 'afternoon',
-                                                'log_time' => 0, // 0 for time in
+                                                'log_time' => $record->log_time, // Use actual datetime from attendance record
                                                 'workstate' => 0,
                                                 'status' => 'active'
                                             ]);
@@ -1883,7 +1883,7 @@ class MyAttendanceController extends Controller
                                             attendance_payments_time_schedule::create([
                                                 'attendance_payments_id' => $payment->id,
                                                 'type_of_schedule_pay' => 'afternoon',
-                                                'log_time' => 1, // 1 for time out
+                                                'log_time' => $record->log_time, // Use actual datetime from attendance record
                                                 'workstate' => 1,
                                                 'status' => 'active'
                                             ]);
