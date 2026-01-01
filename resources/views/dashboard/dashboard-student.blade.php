@@ -109,11 +109,26 @@
                                     <td>{{ $payment['event_name'] }}</td>
                                     <td class="text-center">₱{{ number_format($payment['amount'], 2) }}</td>
                                     <td class="text-center">
-                                        @if($payment['status'] === 'paid')
-                                        <span class="px-2 py-1 rounded-full text-xs bg-success text-white">Paid</span>
-                                        @else
-                                        <span class="px-2 py-1 rounded-full text-xs bg-danger text-white">Unpaid</span>
-                                        @endif
+                                        @php
+                                            $status = $payment['status'] ?? 'pending';
+                                            $statusBadge = 'bg-slate-500';
+                                            $statusText = 'No Payment';
+                                            
+                                            if ($status === 'pending') {
+                                                $statusBadge = 'bg-warning';
+                                                $statusText = 'Pending';
+                                            } elseif ($status === 'approved') {
+                                                $statusBadge = 'bg-primary';
+                                                $statusText = 'Approved';
+                                            } elseif ($status === 'paid') {
+                                                $statusBadge = 'bg-success';
+                                                $statusText = 'Paid';
+                                            } elseif ($status === 'declined') {
+                                                $statusBadge = 'bg-danger';
+                                                $statusText = 'Declined';
+                                            }
+                                        @endphp
+                                        <span class="px-2 py-1 rounded-full text-xs {{ $statusBadge }} text-white">{{ $statusText }}</span>
                                     </td>
                                     <td class="text-center">{{ $payment['date_formatted'] }}</td>
                                 </tr>

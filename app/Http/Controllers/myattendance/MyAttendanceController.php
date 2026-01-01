@@ -308,7 +308,10 @@ class MyAttendanceController extends Controller
                                     
                                     if ($morningTimeIns->isNotEmpty()) {
                                         $firstMorningTimeIn = $morningTimeIns->first();
-                                        if ($firstMorningTimeIn->log_time && $firstMorningTimeIn->log_time->gt($allowedTimeIn)) {
+                                        // Penalty ONLY if scan time exceeds EVENT start time
+                                        // Allowed time is when scanning starts, not a penalty threshold
+                                        if ($firstMorningTimeIn->log_time && 
+                                            $firstMorningTimeIn->log_time->gt($morningStart)) {
                                             $latePenalty += ($lateRule->late_penalty ?? 0);
                                         }
                                     }
@@ -346,7 +349,10 @@ class MyAttendanceController extends Controller
                                     
                                     if ($morningTimeOuts->isNotEmpty()) {
                                         $lastMorningTimeOut = $morningTimeOuts->first();
-                                        if ($lastMorningTimeOut->log_time && $lastMorningTimeOut->log_time->gt($allowedTimeOut)) {
+                                        // Penalty ONLY if scan time exceeds EVENT start time
+                                        // Allowed time is when scanning starts, not a penalty threshold
+                                        if ($lastMorningTimeOut->log_time && 
+                                            $lastMorningTimeOut->log_time->gt($morningStart)) {
                                             $latePenalty += ($lateRule->late_penalty ?? 0);
                                         }
                                     }
@@ -375,7 +381,10 @@ class MyAttendanceController extends Controller
                                     
                                     if ($afternoonTimeIns->isNotEmpty()) {
                                         $firstAfternoonTimeIn = $afternoonTimeIns->first();
-                                        if ($firstAfternoonTimeIn->log_time && $firstAfternoonTimeIn->log_time->gt($allowedTimeIn)) {
+                                        // Penalty ONLY if scan time exceeds EVENT start time
+                                        // Allowed time is when scanning starts, not a penalty threshold
+                                        if ($firstAfternoonTimeIn->log_time && 
+                                            $firstAfternoonTimeIn->log_time->gt($afternoonStart)) {
                                             $latePenalty += ($lateRule->late_penalty ?? 0);
                                         }
                                     }
@@ -413,7 +422,10 @@ class MyAttendanceController extends Controller
                                     
                                     if ($afternoonTimeOuts->isNotEmpty()) {
                                         $lastAfternoonTimeOut = $afternoonTimeOuts->first();
-                                        if ($lastAfternoonTimeOut->log_time && $lastAfternoonTimeOut->log_time->gt($allowedTimeOut)) {
+                                        // Penalty ONLY if scan time exceeds EVENT start time
+                                        // Allowed time is when scanning starts, not a penalty threshold
+                                        if ($lastAfternoonTimeOut->log_time && 
+                                            $lastAfternoonTimeOut->log_time->gt($afternoonStart)) {
                                             $latePenalty += ($lateRule->late_penalty ?? 0);
                                         }
                                     }
@@ -712,7 +724,10 @@ class MyAttendanceController extends Controller
                                         
                                         if ($morningTimeIns->isNotEmpty()) {
                                             $firstMorningTimeIn = $morningTimeIns->first();
-                                            if ($firstMorningTimeIn->log_time && $firstMorningTimeIn->log_time->gt($allowedTimeIn)) {
+                                            // Penalty ONLY if scan time exceeds EVENT start time
+                                            // Allowed time is when scanning starts, not a penalty threshold
+                                            if ($firstMorningTimeIn->log_time && 
+                                                $firstMorningTimeIn->log_time->gt($morningStart)) {
                                                 $latePenalty += ($lateRule->late_penalty ?? 0);
                                             }
                                         }
@@ -750,7 +765,10 @@ class MyAttendanceController extends Controller
                                         
                                         if ($morningTimeOuts->isNotEmpty()) {
                                             $lastMorningTimeOut = $morningTimeOuts->first();
-                                            if ($lastMorningTimeOut->log_time && $lastMorningTimeOut->log_time->gt($allowedTimeOut)) {
+                                            // Penalty ONLY if scan time exceeds EVENT start time
+                                            // Allowed time is when scanning starts, not a penalty threshold
+                                            if ($lastMorningTimeOut->log_time && 
+                                                $lastMorningTimeOut->log_time->gt($morningStart)) {
                                                 $latePenalty += ($lateRule->late_penalty ?? 0);
                                             }
                                         }
@@ -779,7 +797,10 @@ class MyAttendanceController extends Controller
                                         
                                         if ($afternoonTimeIns->isNotEmpty()) {
                                             $firstAfternoonTimeIn = $afternoonTimeIns->first();
-                                            if ($firstAfternoonTimeIn->log_time && $firstAfternoonTimeIn->log_time->gt($allowedTimeIn)) {
+                                            // Penalty ONLY if scan time exceeds EVENT start time
+                                            // Allowed time is when scanning starts, not a penalty threshold
+                                            if ($firstAfternoonTimeIn->log_time && 
+                                                $firstAfternoonTimeIn->log_time->gt($afternoonStart)) {
                                                 $latePenalty += ($lateRule->late_penalty ?? 0);
                                             }
                                         }
@@ -817,7 +838,10 @@ class MyAttendanceController extends Controller
                                         
                                         if ($afternoonTimeOuts->isNotEmpty()) {
                                             $lastAfternoonTimeOut = $afternoonTimeOuts->first();
-                                            if ($lastAfternoonTimeOut->log_time && $lastAfternoonTimeOut->log_time->gt($allowedTimeOut)) {
+                                            // Penalty ONLY if scan time exceeds EVENT start time
+                                            // Allowed time is when scanning starts, not a penalty threshold
+                                            if ($lastAfternoonTimeOut->log_time && 
+                                                $lastAfternoonTimeOut->log_time->gt($afternoonStart)) {
                                                 $latePenalty += ($lateRule->late_penalty ?? 0);
                                             }
                                         }
@@ -1194,8 +1218,10 @@ class MyAttendanceController extends Controller
                             
                             if ($morningTimeIns->isNotEmpty()) {
                                 $firstMorningTimeIn = $morningTimeIns->first();
-                                // Compare log_time with allowed time in
-                                if ($firstMorningTimeIn->log_time && $firstMorningTimeIn->log_time->gt($allowedTimeIn)) {
+                                // Penalty ONLY if scan time exceeds EVENT start time
+                                // Allowed time is when scanning starts, not a penalty threshold
+                                if ($firstMorningTimeIn->log_time && 
+                                    $firstMorningTimeIn->log_time->gt($morningStart)) {
                                     $latePenalty += ($lateRule->late_penalty ?? 0);
                                 }
                             }
@@ -1235,8 +1261,10 @@ class MyAttendanceController extends Controller
                             
                             if ($morningTimeOuts->isNotEmpty()) {
                                 $lastMorningTimeOut = $morningTimeOuts->first();
-                                // Compare log_time with allowed time out
-                                if ($lastMorningTimeOut->log_time && $lastMorningTimeOut->log_time->gt($allowedTimeOut)) {
+                                // Penalty ONLY if scan time exceeds EVENT start time
+                                // Allowed time is when scanning starts, not a penalty threshold
+                                if ($lastMorningTimeOut->log_time && 
+                                    $lastMorningTimeOut->log_time->gt($morningStart)) {
                                     $latePenalty += ($lateRule->late_penalty ?? 0);
                                 }
                             }
@@ -1265,8 +1293,10 @@ class MyAttendanceController extends Controller
                             
                             if ($afternoonTimeIns->isNotEmpty()) {
                                 $firstAfternoonTimeIn = $afternoonTimeIns->first();
-                                // Compare log_time with allowed time in
-                                if ($firstAfternoonTimeIn->log_time && $firstAfternoonTimeIn->log_time->gt($allowedTimeIn)) {
+                                // Penalty ONLY if scan time exceeds EVENT start time
+                                // Allowed time is when scanning starts, not a penalty threshold
+                                if ($firstAfternoonTimeIn->log_time && 
+                                    $firstAfternoonTimeIn->log_time->gt($afternoonStart)) {
                                     $latePenalty += ($lateRule->late_penalty ?? 0);
                                 }
                             }
@@ -1306,8 +1336,10 @@ class MyAttendanceController extends Controller
                             
                             if ($afternoonTimeOuts->isNotEmpty()) {
                                 $lastAfternoonTimeOut = $afternoonTimeOuts->first();
-                                // Compare log_time with allowed time out
-                                if ($lastAfternoonTimeOut->log_time && $lastAfternoonTimeOut->log_time->gt($allowedTimeOut)) {
+                                // Penalty ONLY if scan time exceeds EVENT start time
+                                // Allowed time is when scanning starts, not a penalty threshold
+                                if ($lastAfternoonTimeOut->log_time && 
+                                    $lastAfternoonTimeOut->log_time->gt($afternoonStart)) {
                                     $latePenalty += ($lateRule->late_penalty ?? 0);
                                 }
                             }
@@ -1564,7 +1596,10 @@ class MyAttendanceController extends Controller
                                 
                                 if ($morningTimeIns->isNotEmpty()) {
                                     $firstMorningTimeIn = $morningTimeIns->first();
-                                    if ($firstMorningTimeIn->log_time && $firstMorningTimeIn->log_time->gt($allowedTimeIn)) {
+                                    // Penalty ONLY if scan time exceeds EVENT start time
+                                    // Allowed time is when scanning starts, not a penalty threshold
+                                    if ($firstMorningTimeIn->log_time && 
+                                        $firstMorningTimeIn->log_time->gt($morningStart)) {
                                         $latePenalty += ($lateRule->late_penalty ?? 0);
                                     }
                                 }
@@ -1585,7 +1620,10 @@ class MyAttendanceController extends Controller
                                 
                                 if ($morningTimeOuts->isNotEmpty()) {
                                     $lastMorningTimeOut = $morningTimeOuts->first();
-                                    if ($lastMorningTimeOut->log_time && $lastMorningTimeOut->log_time->gt($allowedTimeOut)) {
+                                    // Penalty ONLY if scan time exceeds EVENT start time
+                                    // Allowed time is when scanning starts, not a penalty threshold
+                                    if ($lastMorningTimeOut->log_time && 
+                                        $lastMorningTimeOut->log_time->gt($morningStart)) {
                                         $latePenalty += ($lateRule->late_penalty ?? 0);
                                     }
                                 }
@@ -1611,7 +1649,10 @@ class MyAttendanceController extends Controller
                                 
                                 if ($afternoonTimeIns->isNotEmpty()) {
                                     $firstAfternoonTimeIn = $afternoonTimeIns->first();
-                                    if ($firstAfternoonTimeIn->log_time && $firstAfternoonTimeIn->log_time->gt($allowedTimeIn)) {
+                                    // Penalty ONLY if scan time exceeds EVENT start time
+                                    // Allowed time is when scanning starts, not a penalty threshold
+                                    if ($firstAfternoonTimeIn->log_time && 
+                                        $firstAfternoonTimeIn->log_time->gt($afternoonStart)) {
                                         $latePenalty += ($lateRule->late_penalty ?? 0);
                                     }
                                 }
@@ -1632,7 +1673,10 @@ class MyAttendanceController extends Controller
                                 
                                 if ($afternoonTimeOuts->isNotEmpty()) {
                                     $lastAfternoonTimeOut = $afternoonTimeOuts->first();
-                                    if ($lastAfternoonTimeOut->log_time && $lastAfternoonTimeOut->log_time->gt($allowedTimeOut)) {
+                                    // Penalty ONLY if scan time exceeds EVENT start time
+                                    // Allowed time is when scanning starts, not a penalty threshold
+                                    if ($lastAfternoonTimeOut->log_time && 
+                                        $lastAfternoonTimeOut->log_time->gt($afternoonStart)) {
                                         $latePenalty += ($lateRule->late_penalty ?? 0);
                                     }
                                 }

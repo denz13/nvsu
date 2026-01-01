@@ -44,21 +44,25 @@ class DashboardStudentController extends Controller
             ->unique();
         
         // Statistics
+        // Get all active payments (not declined or deleted)
+        $allPayments = attendance_payments::where('students_id', $student->id)
+            ->where('status', 'active')
+            ->whereIn('events_id', $eventIds)
+            ->get();
+        
         $stats = [
             'total_events' => $eventIds->count(),
             'total_attendance' => tbl_attendance::where('student_id', $student->id)
+                ->where('status', 'active')
                 ->whereIn('event_id', $eventIds)
                 ->count(),
-            'total_fines' => attendance_payments::where('students_id', $student->id)
-                ->whereIn('events_id', $eventIds)
-                ->sum('amount_paid'),
-            'paid_fines' => attendance_payments::where('students_id', $student->id)
-                ->where('payment_status', 'paid')
-                ->whereIn('events_id', $eventIds)
-                ->sum('amount_paid'),
+            'total_fines' => $allPayments->sum('amount_paid'),
+            // Count approved and paid as "paid" (processed payments)
+            'paid_fines' => $allPayments->whereIn('payment_status', ['approved', 'paid'])->sum('amount_paid'),
         ];
         
-        $stats['unpaid_fines'] = $stats['total_fines'] - $stats['paid_fines'];
+        // Unpaid fines = total fines - (approved + paid)
+        $stats['unpaid_fines'] = max(0, $stats['total_fines'] - $stats['paid_fines']);
         
         // Recent attendance (last 10)
         $recentAttendances = tbl_attendance::where('student_id', $student->id)
@@ -98,18 +102,19 @@ class DashboardStudentController extends Controller
                 ];
             });
         
-        // Recent payments
+        // Recent payments - only show active payments, ordered by updated_at to show latest status changes
         $recentPayments = attendance_payments::where('students_id', $student->id)
+            ->where('status', 'active')
             ->with(['events'])
-            ->orderBy('created_at', 'desc')
+            ->orderBy('updated_at', 'desc')
             ->limit(5)
             ->get()
             ->map(function($payment) {
                 return [
                     'event_name' => $payment->events ? $payment->events->event_name : 'N/A',
                     'amount' => $payment->amount_paid ?? 0,
-                    'status' => $payment->payment_status,
-                    'date_formatted' => Carbon::parse($payment->created_at)->format('M d, Y'),
+                    'status' => $payment->payment_status ?? 'pending',
+                    'date_formatted' => $payment->updated_at ? Carbon::parse($payment->updated_at)->format('M d, Y') : Carbon::parse($payment->created_at)->format('M d, Y'),
                 ];
             });
         

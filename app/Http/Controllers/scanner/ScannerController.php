@@ -373,24 +373,25 @@ class ScannerController extends Controller
                     'reason' => !$hasTimeIn ? 'no_time_in_exists' : ($hasTimeOut ? 'both_exist_in_window' : 'time_in_exists_no_time_out')
                 ]);
 
-                // Check for lateness (allowed time is only used for penalty calculation, not blocking)
+                // Check for lateness: Penalty is based ONLY on EVENT start time
+                // The allowed_time (from events_lates_deduction) is when scanning STARTS, not a penalty threshold
+                // Penalty applies ONLY if scan time exceeds EVENT start time (start_datetime_morning/afternoon)
                 $isLate = false;
                 $penalty = 0;
-                if ($lateRule) {
-                    $currentTime = $now->format('H:i:s');
-                    if ($workstate == 0 && $allowedTimeIn) {
-                        $allowedTimeInStr = strlen($allowedTimeIn) == 5 ? $allowedTimeIn . ':00' : $allowedTimeIn;
-                        if ($currentTime > $allowedTimeInStr) {
-                            $isLate = true;
-                        }
+                if ($lateRule && $eventStartDateTime) {
+                    // Check: Does current time exceed EVENT start time?
+                    // This is the ONLY condition for penalty - if they scan after event starts, they're late
+                    $exceedsEventStart = $now->gt($eventStartDateTime);
+                    
+                    if ($exceedsEventStart) {
+                        // They scanned after the event started - apply penalty
+                        $isLate = true;
+                        $penalty = (float)($lateRule->late_penalty ?? 0);
                     }
-                    if ($workstate == 1 && $allowedTimeOut) {
-                        $allowedTimeOutStr = strlen($allowedTimeOut) == 5 ? $allowedTimeOut . ':00' : $allowedTimeOut;
-                        if ($currentTime > $allowedTimeOutStr) {
-                            $isLate = true;
-                        }
-                    }
-                    $penalty = (float)($lateRule->late_penalty ?? 0);
+                    // If current time does NOT exceed event start time, no penalty
+                    // Example: Event starts at 1:55 PM, allowed time is 1:50 PM
+                    // - Scan at 1:51 PM: No penalty (before event start)
+                    // - Scan at 1:56 PM: Penalty (after event start)
                 }
 
                 // Don't save automatically - let user choose Time In or Time Out
