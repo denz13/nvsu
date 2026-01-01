@@ -856,6 +856,8 @@ function createPaymentAndDecline(studentId, eventId) {
 
 // Generate receipt
 function generateReceipt(paymentId) {
+    console.log('🔍 Generating receipt for payment ID:', paymentId);
+    
     fetch(`/listpaymentrequest/${paymentId}/generate-receipt`, {
         method: 'POST',
         headers: {
@@ -864,20 +866,62 @@ function generateReceipt(paymentId) {
             'Content-Type': 'application/json'
         }
     })
-    .then(response => {
-        return response.json().then(data => ({ status: response.status, data }));
+    .then(async response => {
+        console.log('📡 Response status:', response.status);
+        console.log('📡 Response headers:', response.headers);
+        
+        const data = await response.json();
+        console.log('📦 Response data:', data);
+        
+        if (!response.ok) {
+            // Log full error details
+            console.error('❌ Error Response Details:', {
+                status: response.status,
+                statusText: response.statusText,
+                url: response.url,
+                data: data,
+                payment_status: data.payment_status,
+                amount_paid: data.amount_paid
+            });
+            
+            // Handle error responses (400, 404, 500, etc.)
+            const errorMsg = data.message || `Server error: ${response.status}`;
+            const errorDetails = [];
+            
+            if (data.payment_status) {
+                errorDetails.push(`Payment Status: ${data.payment_status}`);
+            }
+            if (data.amount_paid !== undefined) {
+                errorDetails.push(`Amount Paid: ₱${parseFloat(data.amount_paid).toFixed(2)}`);
+            }
+            
+            const fullErrorMsg = errorDetails.length > 0 
+                ? `${errorMsg} (${errorDetails.join(', ')})`
+                : errorMsg;
+            
+            throw new Error(fullErrorMsg);
+        }
+        
+        return { status: response.status, data };
     })
     .then(({ status, data }) => {
+        console.log('✅ Success response:', data);
         if (data.success) {
             // Display receipt directly without confirmation (newly generated or existing)
             displayReceipt(data);
         } else {
+            console.warn('⚠️ Response success is false:', data);
             showListPaymentRequestToast(data.message || 'Failed to generate receipt', 'error');
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        showListPaymentRequestToast('An error occurred while generating receipt', 'error');
+        console.error('💥 Error generating receipt:', error);
+        console.error('💥 Error stack:', error.stack);
+        console.error('💥 Error name:', error.name);
+        console.error('💥 Error message:', error.message);
+        
+        const errorMessage = error.message || 'An error occurred while generating receipt';
+        showListPaymentRequestToast(errorMessage, 'error');
     });
 }
 
@@ -1072,7 +1116,16 @@ function displayReceipt(data) {
 // Toast notification helper
 function showListPaymentRequestToast(message, type = 'success') {
     if (typeof window.showToast === 'function') {
-        window.showToast(message, type === 'success' ? 'success' : 'error');
+        // window.showToast expects (type, title, message)
+        const toastType = type === 'success' ? 'success' : 'error';
+        const title = type === 'success' ? 'Success' : 'Error';
+        window.showToast(toastType, title, message);
+    } else if (type === 'error' && typeof window.showError === 'function') {
+        // Use showError helper if available
+        window.showError('Error', message);
+    } else if (type === 'success' && typeof window.showSuccess === 'function') {
+        // Use showSuccess helper if available
+        window.showSuccess('Success', message);
     } else {
         alert(message);
     }

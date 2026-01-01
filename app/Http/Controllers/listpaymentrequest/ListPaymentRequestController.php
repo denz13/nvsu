@@ -581,13 +581,17 @@ class ListPaymentRequestController extends Controller
             if (($payment->amount_paid ?? 0) == 0 && $payment->payment_status !== 'approved') {
                 $payment->payment_status = 'approved';
                 $payment->save();
+                // Refresh payment to get updated status
+                $payment->refresh();
             }
 
             // Check if already approved (or was just auto-approved)
             if ($payment->payment_status !== 'approved') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Payment must be approved before generating receipt'
+                    'message' => 'Payment must be approved before generating receipt. Please approve the payment first.',
+                    'payment_status' => $payment->payment_status,
+                    'amount_paid' => $payment->amount_paid ?? 0
                 ], 400);
             }
 
