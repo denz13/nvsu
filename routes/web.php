@@ -78,6 +78,8 @@ Route::middleware('auth:web,students')->group(function() {
         // Participants
         Route::get('events/participants/{id}', 'getParticipantsFormData')->name('events.participants.form');
         Route::post('events/participants/save', 'saveParticipants')->name('events.participants.save');
+        // Filtering
+        Route::get('events/programs-by-college/{collegeId}', 'getProgramsByCollege')->name('events.programs-by-college');
     });
 
     Route::controller(CollegeController::class)->group(function() {

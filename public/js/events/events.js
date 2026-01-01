@@ -103,6 +103,42 @@ function validateDatetimeFields(form, scheduleType) {
     return errors;
 }
 
+// Function to filter programs based on selected college (for Add/Edit Event modals)
+function filterProgramsByCollege(prefix, collegeId) {
+    const programSelect = document.getElementById(`${prefix}-event-program`);
+    if (!programSelect) return;
+    
+    const allOptions = programSelect.querySelectorAll('option');
+    
+    // Reset program selection
+    programSelect.value = '';
+    
+    // Convert collegeId to string for comparison
+    const selectedCollegeId = collegeId ? String(collegeId) : '';
+    
+    // Show/hide options based on college selection
+    allOptions.forEach(option => {
+        if (option.value === '') {
+            // Always show the placeholder option
+            option.style.display = 'block';
+            return;
+        }
+        
+        const programCollegeId = option.getAttribute('data-college-id');
+        
+        if (selectedCollegeId === '' || selectedCollegeId === null) {
+            // Show all programs if no college is selected
+            option.style.display = 'block';
+        } else if (programCollegeId && String(programCollegeId) === selectedCollegeId) {
+            // Show only programs that match the selected college
+            option.style.display = 'block';
+        } else {
+            // Hide programs that don't match
+            option.style.display = 'none';
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Reset modal when "Add New Event" button is clicked
     const addBtn = document.querySelector('[data-tw-target="#add-product-modal"]');
@@ -112,6 +148,8 @@ document.addEventListener('DOMContentLoaded', function() {
             saveBtn.innerHTML = '<i data-lucide="save" class="w-4 h-4 mr-2"></i> Save Event';
             document.getElementById('add-product-form').reset();
             toggleDatetimeFields('', 'add'); // Hide all fields
+            // Reset program dropdown to show all programs
+            filterProgramsByCollege('add', '');
         });
     }
     
@@ -128,6 +166,22 @@ document.addEventListener('DOMContentLoaded', function() {
     if (editScheduleType) {
         editScheduleType.addEventListener('change', function() {
             toggleDatetimeFields(this.value, 'edit');
+        });
+    }
+    
+    // Handle college change for Add modal - filter programs
+    const addCollege = document.getElementById('add-event-college');
+    if (addCollege) {
+        addCollege.addEventListener('change', function() {
+            filterProgramsByCollege('add', this.value);
+        });
+    }
+    
+    // Handle college change for Edit modal - filter programs
+    const editCollege = document.getElementById('edit-event-college');
+    if (editCollege) {
+        editCollege.addEventListener('change', function() {
+            filterProgramsByCollege('edit', this.value);
         });
     }
     
@@ -310,53 +364,165 @@ window.addParticipants = function(eventId) {
         const organizationsWithSpecial = [{ id: '', text: 'All' }, { id: 'none', text: 'None' }, ...(data.organizations || [])];
 
         setTomOptions('#ap-college', collegesWithAll, '-- Select College --', {allowEmptyOption: true});
-        setTomOptions('#ap-program', programsWithAll, '-- Select Program --', {allowEmptyOption: true});
+        // Initially show empty program dropdown - will be populated when college is selected
+        setTomOptions('#ap-program', [], '-- Select Program --', {allowEmptyOption: true});
         setTomOptions('#ap-organization', organizationsWithSpecial, '-- Select Organization --', {allowEmptyOption: true});
         
         // Store original data for filtering
         const allPrograms = data.programs || [];
         const allOrganizations = data.organizations || [];
-        const organizationsByCollege = data.organizations_by_college || {};
         
-        // Add event listener for college change to filter programs and organizations
-        const collegeSelect = document.getElementById('ap-college');
-        if (collegeSelect && collegeSelect.tomselect) {
-            collegeSelect.tomselect.on('change', function(value) {
-                const selectedCollegeId = value ? String(value) : '';
-                
-                // Filter programs by college_id
-                let filteredPrograms = [];
-                if (selectedCollegeId === '') {
-                    // Show all programs if "All" is selected
-                    filteredPrograms = allPrograms;
-                } else {
-                    // Filter programs that belong to selected college
-                    filteredPrograms = allPrograms.filter(p => String(p.college_id) === selectedCollegeId);
-                }
-                
-                // Add "All" option
-                const programsWithAll = [{ id: '', text: 'All' }, ...filteredPrograms];
+        // Function to filter programs by college - using API endpoint
+        const filterProgramsByCollege = function(selectedCollegeId) {
+            const programSelect = document.getElementById('ap-program');
+            if (!programSelect) return;
+            
+            if (selectedCollegeId === '' || !selectedCollegeId) {
+                // Show all programs if "All" is selected or empty
+                const programsWithAll = [{ id: '', text: 'All' }, ...allPrograms];
                 setTomOptions('#ap-program', programsWithAll, '-- Select Program --', {allowEmptyOption: true});
+                return;
+            }
+            
+            // Show loading state
+            setTomOptions('#ap-program', [{ id: '', text: 'Loading programs...' }], '-- Select Program --', {allowEmptyOption: true});
+            
+            // Fetch programs from API
+            console.log('🔍 Fetching programs for college ID:', selectedCollegeId);
+            fetch(`/events/programs-by-college/${selectedCollegeId}`, {
+                method: 'GET',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json'
+                }
+            })
+            .then(async response => {
+                console.log('📡 Response status:', response.status);
+                const contentType = response.headers.get('content-type');
+                console.log('📄 Content-Type:', contentType);
                 
-                // Filter organizations by college (via students)
-                let filteredOrganizations = [];
-                if (selectedCollegeId === '') {
-                    // Show all organizations if "All" is selected
-                    filteredOrganizations = allOrganizations;
-                } else {
-                    // Get organization IDs for this college
-                    const orgIds = organizationsByCollege[selectedCollegeId] || [];
-                    // Filter organizations that belong to selected college
-                    filteredOrganizations = allOrganizations.filter(o => orgIds.includes(Number(o.id)));
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('❌ Response is not JSON:', text.substring(0, 500));
+                    throw new Error('Server returned non-JSON response');
                 }
                 
-                // Add "All" and "None" options
-                const organizationsWithSpecial = [
-                    { id: '', text: 'All' }, 
-                    { id: 'none', text: 'None' }, 
-                    ...filteredOrganizations
-                ];
-                setTomOptions('#ap-organization', organizationsWithSpecial, '-- Select Organization --', {allowEmptyOption: true});
+                return response.json();
+            })
+            .then(data => {
+                console.log('📦 Response data:', data);
+                if (data.success && data.data) {
+                    // Convert API response to format expected by setTomOptions
+                    const filteredPrograms = data.data.map(p => ({
+                        id: p.id,
+                        text: p.program_name,
+                        college_id: p.college_id
+                    }));
+                    console.log('✅ Filtered programs:', filteredPrograms);
+                    setTomOptions('#ap-program', filteredPrograms, '-- Select Program --', {allowEmptyOption: true});
+                    console.log('Loaded programs for college:', selectedCollegeId, 'Found:', filteredPrograms.length);
+                } else {
+                    console.error('❌ Failed to load programs:', data.message, data.error);
+                    setTomOptions('#ap-program', [{ id: '', text: 'Error: ' + (data.message || 'Unknown error') }], '-- Select Program --', {allowEmptyOption: true});
+                }
+            })
+            .catch(error => {
+                console.error('💥 Error fetching programs:', error);
+                setTomOptions('#ap-program', [{ id: '', text: 'Error loading programs' }], '-- Select Program --', {allowEmptyOption: true});
+            });
+            
+            // Also filter organizations by college_id when college changes
+            let filteredOrganizations = [];
+            if (selectedCollegeId === '' || !selectedCollegeId) {
+                filteredOrganizations = allOrganizations;
+            } else {
+                // Filter organizations that belong to this college directly
+                filteredOrganizations = allOrganizations.filter(o => {
+                    return o.college_id && String(o.college_id) === String(selectedCollegeId);
+                });
+                console.log('Filtering organizations for college:', selectedCollegeId, 'Found:', filteredOrganizations.length);
+            }
+            
+            const organizationsWithSpecial = [
+                { id: '', text: 'All' }, 
+                { id: 'none', text: 'None' }, 
+                ...filteredOrganizations
+            ];
+            setTomOptions('#ap-organization', organizationsWithSpecial, '-- Select Organization --', {allowEmptyOption: true});
+        };
+        
+        // Add event listener for college change to filter programs
+        // Wait a bit for Tom Select to initialize
+        setTimeout(() => {
+            const collegeSelect = document.getElementById('ap-college');
+            if (collegeSelect && collegeSelect.tomselect) {
+                collegeSelect.tomselect.on('change', function(value) {
+                    const selectedCollegeId = value ? String(value) : '';
+                    console.log('🎯 College changed to:', selectedCollegeId);
+                    filterProgramsByCollege(selectedCollegeId);
+                });
+            } else {
+                // Fallback: use native change event if Tom Select not ready
+                if (collegeSelect) {
+                    collegeSelect.addEventListener('change', function() {
+                        const selectedCollegeId = this.value ? String(this.value) : '';
+                        console.log('🎯 College changed to (native):', selectedCollegeId);
+                        filterProgramsByCollege(selectedCollegeId);
+                    });
+                }
+            }
+        }, 100);
+        
+        // Function to filter organizations by program
+        const filterOrganizationsByProgram = function(selectedProgramId) {
+            // Filter organizations directly by program_id (organizations have program_id field)
+            let filteredOrganizations = [];
+            if (selectedProgramId === '' || !selectedProgramId) {
+                // Show all organizations if "All" is selected
+                filteredOrganizations = allOrganizations;
+            } else {
+                // Filter organizations that belong to this program directly
+                filteredOrganizations = allOrganizations.filter(o => {
+                    // Check if organization has program_id and if it matches
+                    return o.program_id && String(o.program_id) === String(selectedProgramId);
+                });
+                console.log('Filtering organizations for program:', selectedProgramId, 'Found:', filteredOrganizations.length);
+            }
+            
+            // Add "All" and "None" options
+            const organizationsWithSpecial = [
+                { id: '', text: 'All' }, 
+                { id: 'none', text: 'None' }, 
+                ...filteredOrganizations
+            ];
+            setTomOptions('#ap-organization', organizationsWithSpecial, '-- Select Organization --', {allowEmptyOption: true});
+        };
+        
+        // Add event listener for program change to filter organizations
+        const programSelect = document.getElementById('ap-program');
+        if (programSelect && programSelect.tomselect) {
+            programSelect.tomselect.on('change', function(value) {
+                const selectedProgramId = value ? String(value) : '';
+                // If program is selected, filter organizations by program
+                // Otherwise, filter by college (if college is selected)
+                if (selectedProgramId && selectedProgramId !== '') {
+                    filterOrganizationsByProgram(selectedProgramId);
+                } else {
+                    // If no program selected, fall back to college filter
+                    const selectedCollegeId = collegeSelect && collegeSelect.tomselect ? collegeSelect.tomselect.getValue() : '';
+                    if (selectedCollegeId && selectedCollegeId !== '') {
+                        // Refilter organizations by college
+                        let filteredOrganizations = allOrganizations.filter(o => {
+                            return o.college_id && String(o.college_id) === String(selectedCollegeId);
+                        });
+                        const organizationsWithSpecial = [
+                            { id: '', text: 'All' }, 
+                            { id: 'none', text: 'None' }, 
+                            ...filteredOrganizations
+                        ];
+                        setTomOptions('#ap-organization', organizationsWithSpecial, '-- Select Organization --', {allowEmptyOption: true});
+                    }
+                }
             });
         }
         
@@ -405,25 +571,44 @@ window.addParticipants = function(eventId) {
             }
         };
         
-        // Set college first (this will trigger filter for programs/organizations if not "All")
+        // Set college and trigger filters
         const collegeVal = defaults.college_id ?? '';
+        
+        // Set college value first
         setSelectValue('#ap-college', collegeVal, false);
         
-        // Wait for filter to complete (if college was not "All"), then set program and organization
+        // If there's a college value, filter programs after a short delay to ensure Tom Select is ready
+        if (collegeVal && collegeVal !== '') {
+            setTimeout(() => {
+                console.log('🔄 Filtering programs for default college:', collegeVal);
+                filterProgramsByCollege(String(collegeVal));
+            }, 200);
+        }
+        
+        // Wait for college filter to complete, then set program
         setTimeout(() => {
             const programVal = defaults.program_id ?? '';
-            setSelectValue('#ap-program', programVal, true);
             
-            // For organization: null means "None", empty/undefined means "All"
-            let orgVal = '';
-            if (defaults.organization_id === null) {
-                orgVal = 'none';
-            } else if (defaults.organization_id === undefined || defaults.organization_id === '') {
-                orgVal = '';
-            } else {
-                orgVal = String(defaults.organization_id);
+            // If there's a program value, filter organizations first
+            if (programVal && programVal !== '') {
+                filterOrganizationsByProgram(programVal);
             }
-            setSelectValue('#ap-organization', orgVal, true);
+            
+            setSelectValue('#ap-program', programVal, false);
+            
+            // Wait for program filter to complete, then set organization
+            setTimeout(() => {
+                // For organization: null means "None", empty/undefined means "All"
+                let orgVal = '';
+                if (defaults.organization_id === null) {
+                    orgVal = 'none';
+                } else if (defaults.organization_id === undefined || defaults.organization_id === '') {
+                    orgVal = '';
+                } else {
+                    orgVal = String(defaults.organization_id);
+                }
+                setSelectValue('#ap-organization', orgVal, true);
+            }, 100);
         }, 300);
 
         // Prefill time fields
@@ -462,8 +647,42 @@ document.addEventListener('DOMContentLoaded', function() {
     const saveBtn = document.getElementById('ap-save-btn');
     if (saveBtn) {
         saveBtn.addEventListener('click', function() {
-            const form = document.getElementById('add-participants-form');
-            const formData = new FormData(form);
+            // Manually collect form data from the div
+            const formData = new FormData();
+            
+            // Add events_id
+            const eventsId = document.getElementById('ap-events-id');
+            if (eventsId && eventsId.value) formData.append('events_id', eventsId.value);
+            
+            // Add college_id
+            const college = document.getElementById('ap-college');
+            if (college) formData.append('college_id', college.value || '');
+            
+            // Add program_id
+            const program = document.getElementById('ap-program');
+            if (program) formData.append('program_id', program.value || '');
+            
+            // Add organization_id
+            const organization = document.getElementById('ap-organization');
+            if (organization) formData.append('organization_id', organization.value || '');
+            
+            // Add time fields
+            const timeInMorning = document.getElementById('ap-time-in-morning');
+            if (timeInMorning && timeInMorning.value) formData.append('time_in_morning', timeInMorning.value);
+            
+            const timeOutMorning = document.getElementById('ap-time-out-morning');
+            if (timeOutMorning && timeOutMorning.value) formData.append('time_out_morning', timeOutMorning.value);
+            
+            const timeInAfternoon = document.getElementById('ap-time-in-afternoon');
+            if (timeInAfternoon && timeInAfternoon.value) formData.append('time_in_afternoon', timeInAfternoon.value);
+            
+            const timeOutAfternoon = document.getElementById('ap-time-out-afternoon');
+            if (timeOutAfternoon && timeOutAfternoon.value) formData.append('time_out_afternoon', timeOutAfternoon.value);
+            
+            // Add late penalty
+            const latePenalty = document.getElementById('ap-late-penalty');
+            if (latePenalty && latePenalty.value) formData.append('late_penalty', latePenalty.value);
+            
             fetch('/events/participants/save', {
                 method: 'POST',
                 body: formData,
@@ -679,6 +898,25 @@ window.editEvent = function(eventId) {
                         const descriptionInput = document.getElementById('edit-event-description');
                         if (descriptionInput) {
                             descriptionInput.value = event.event_description || '';
+                        }
+                        
+                        // Set college first, then filter and set program
+                        const collegeInput = document.getElementById('edit-event-college');
+                        if (collegeInput && event.college_id) {
+                            collegeInput.value = event.college_id;
+                            // Filter programs based on selected college
+                            filterProgramsByCollege('edit', event.college_id);
+                        } else if (collegeInput) {
+                            collegeInput.value = '';
+                            filterProgramsByCollege('edit', '');
+                        }
+                        
+                        // Set program after filtering
+                        const programInput = document.getElementById('edit-event-program');
+                        if (programInput && event.program_id) {
+                            programInput.value = event.program_id;
+                        } else if (programInput) {
+                            programInput.value = '';
                         }
                         
                         // Set schedule type first, then toggle fields

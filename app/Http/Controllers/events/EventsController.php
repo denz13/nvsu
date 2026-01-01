@@ -21,7 +21,9 @@ class EventsController extends Controller
     public function addEvent()
     {
         $events = events::orderBy('created_at', 'desc')->paginate(10);
-        return view('events.add-event', compact('events'));
+        $colleges = college::orderBy('college_name', 'asc')->get(['id', 'college_name']);
+        $programs = program::orderBy('program_name', 'asc')->get(['id', 'program_name', 'college_id']);
+        return view('events.add-event', compact('events', 'colleges', 'programs'));
     }
 
     public function getEventDetails($id)
@@ -95,28 +97,12 @@ class EventsController extends Controller
             // Use fallback empty collections if tables are empty to avoid errors
             $colleges = college::orderBy('college_name', 'asc')->get(['id','college_name']);
             $programs = program::orderBy('program_name', 'asc')->get(['id','program_name','college_id']);
-            $organizations = organization::orderBy('organization_name', 'asc')->get(['id','organization_name']);
+            $organizations = organization::orderBy('organization_name', 'asc')->get(['id','organization_name','program_id','college_id']);
             
-            // Normalize to {id, text, college_id} for programs to enable filtering
+            // Normalize to {id, text, college_id, program_id} for filtering
             $colleges = $colleges->map(function($c){ return ['id' => $c->id, 'text' => $c->college_name]; });
             $programs = $programs->map(function($p){ return ['id' => $p->id, 'text' => $p->program_name, 'college_id' => $p->college_id]; });
-            $organizations = $organizations->map(function($o){ return ['id' => $o->id, 'text' => $o->organization_name]; });
-            
-            // Get organizations that belong to each college (via students)
-            // Group organizations by college_id from students table
-            $organizationsByCollege = students::select('college_id', 'organization_id')
-                ->whereNotNull('college_id')
-                ->whereNotNull('organization_id')
-                ->distinct()
-                ->get()
-                ->groupBy('college_id')
-                ->map(function($group) {
-                    return $group->pluck('organization_id')->unique()->values()->toArray();
-                });
-            
-            // Include college_id/program_id for client-side filtering
-            $studentList = students::orderBy('student_name','asc')->limit(1000)
-                ->get(['id','student_name','id_number','college_id','program_id']);
+            $organizations = $organizations->map(function($o){ return ['id' => $o->id, 'text' => $o->organization_name, 'program_id' => $o->program_id, 'college_id' => $o->college_id]; });
 
             // Pull latest assignment defaults for this event
             $latestAssignment = events_assign_participants::where('events_id', $id)
@@ -135,8 +121,6 @@ class EventsController extends Controller
                 'colleges' => $colleges,
                 'programs' => $programs,
                 'organizations' => $organizations,
-                'organizations_by_college' => $organizationsByCollege, // Map of college_id => [organization_ids]
-                'students' => $studentList,
                 'defaults' => [
                     'college_id' => $latestAssignment ? $latestAssignment->college_id : null,
                     'program_id' => $latestAssignment ? $latestAssignment->program_id : null,
@@ -347,6 +331,8 @@ class EventsController extends Controller
             
             $event = new events();
             $event->semester_id = $activeSemester ? $activeSemester->id : null;
+            $event->college_id = $request->college_id ?: null;
+            $event->program_id = $request->program_id ?: null;
             $event->event_name = $request->event_name;
             $event->event_description = $request->event_description;
             $event->event_schedule_type = $request->event_schedule_type;
@@ -441,6 +427,8 @@ class EventsController extends Controller
             // Auto-assign current active semester on update as well (kept hidden from UI)
             $activeSemester = semester::where('status', 'active')->orderBy('id', 'desc')->first();
             $event->semester_id = $activeSemester ? $activeSemester->id : $event->semester_id;
+            $event->college_id = $request->college_id ?: null;
+            $event->program_id = $request->program_id ?: null;
             $event->event_name = $request->event_name;
             $event->event_description = $request->event_description;
             $event->event_schedule_type = $request->event_schedule_type;
@@ -494,6 +482,53 @@ class EventsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete event: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    // Get programs by college ID (for filtering)
+    public function getProgramsByCollege($collegeId)
+    {
+        try {
+            // Handle both string and integer college_id
+            $collegeIdStr = (string) $collegeId;
+            $collegeIdInt = (int) $collegeId;
+            
+            // Query with both string and integer comparison since college_id is varchar
+            $programs = program::where(function($query) use ($collegeIdStr, $collegeIdInt) {
+                $query->where('college_id', $collegeIdStr)
+                      ->orWhere('college_id', $collegeIdInt);
+            })
+            ->where('status', 'active')
+            ->orderBy('program_name', 'asc')
+            ->get(['id', 'program_name', 'college_id']);
+            
+            return response()->json([
+                'success' => true,
+                'data' => $programs,
+                'debug' => [
+                    'college_id_requested' => $collegeId,
+                    'college_id_str' => $collegeIdStr,
+                    'college_id_int' => $collegeIdInt,
+                    'count' => $programs->count(),
+                    'programs' => $programs->map(function($p) {
+                        return [
+                            'id' => $p->id,
+                            'program_name' => $p->program_name,
+                            'college_id' => $p->college_id,
+                            'college_id_type' => gettype($p->college_id)
+                        ];
+                    })
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch programs: ' . $e->getMessage(),
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null
             ], 500);
         }
     }

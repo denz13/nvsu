@@ -98,6 +98,20 @@
 @include('components.toast')
 <!-- END: Toast Component -->
 
+@php
+    // Generate college options HTML
+    $collegeOptions = '';
+    foreach($colleges as $college) {
+        $collegeOptions .= '<option value="' . $college->id . '">' . htmlspecialchars($college->college_name) . '</option>';
+    }
+    
+    // Generate program options HTML
+    $programOptions = '';
+    foreach($programs as $program) {
+        $programOptions .= '<option value="' . $program->id . '" data-college-id="' . $program->college_id . '">' . htmlspecialchars($program->program_name) . '</option>';
+    }
+@endphp
+
 <!-- BEGIN: Add Product Modal -->
 @include('components.modal', [
 'modalId' => 'add-product-modal',
@@ -113,6 +127,20 @@
         <div class="md:col-span-2">
             <label class="form-label">Event Description</label>
             <textarea class="form-control" name="event_description" rows="3" placeholder="Enter event description"></textarea>
+        </div>
+        <div class="md:col-span-1">
+            <label class="form-label">College</label>
+            <select class="form-control" id="add-event-college" name="college_id">
+                <option value="">-- Select College --</option>
+                ' . $collegeOptions . '
+            </select>
+        </div>
+        <div class="md:col-span-1">
+            <label class="form-label">Program</label>
+            <select class="form-control" id="add-event-program" name="program_id">
+                <option value="">-- Select Program --</option>
+                ' . $programOptions . '
+            </select>
         </div>
         <div class="md:col-span-2">
             <label class="form-label">Event Schedule Type <span class="text-danger">*</span></label>
@@ -180,6 +208,20 @@
         <div class="md:col-span-2">
             <label class="form-label">Event Description</label>
             <textarea class="form-control" id="edit-event-description" name="event_description" rows="3" placeholder="Enter event description"></textarea>
+        </div>
+        <div class="md:col-span-1">
+            <label class="form-label">College</label>
+            <select class="form-control" id="edit-event-college" name="college_id">
+                <option value="">-- Select College --</option>
+                ' . $collegeOptions . '
+            </select>
+        </div>
+        <div class="md:col-span-1">
+            <label class="form-label">Program</label>
+            <select class="form-control" id="edit-event-program" name="program_id">
+                <option value="">-- Select Program --</option>
+                ' . $programOptions . '
+            </select>
         </div>
         <div class="md:col-span-2">
             <label class="form-label">Event Schedule Type <span class="text-danger">*</span></label>
