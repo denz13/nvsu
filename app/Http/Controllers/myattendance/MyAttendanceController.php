@@ -294,28 +294,21 @@ class MyAttendanceController extends Controller
                                 $morningStart = $event->start_datetime_morning ? \Carbon\Carbon::parse($event->start_datetime_morning) : null;
                                 $morningEnd = $event->end_datetime_morning ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
                                 
-                                if ($morningStart && $morningEnd && $lateRule->time_in_morning) {
-                                    // Parse allowed time in, ensuring proper time format
-                                    $timeInMorningStr = $lateRule->time_in_morning;
-                                    if (strlen($timeInMorningStr) == 5) {
-                                        $timeInMorningStr .= ':00';
-                                    }
-                                    $allowedTimeIn = \Carbon\Carbon::parse($morningStart->format('Y-m-d') . ' ' . $timeInMorningStr);
-                                    
+                                if ($morningStart && $morningEnd) {
                                     // Check time in records - include ALL records on same date >= morningStart
-                                    // Don't restrict to morningEnd to catch late scans that exceed event start time
                                     // Filter for workstate 0 (time in) first, then filter by date and time
-                                    $morningTimeIns = $eventAttendances->filter(function($att) use ($morningStart) {
+                                    $morningTimeIns = $eventAttendances->filter(function($att) use ($morningStart, $morningEnd) {
                                         // First check if it's a time in record (workstate = 0)
                                         if ($att->workstate != 0 && $att->workstate != "0") return false;
                                         
                                         if (!$att->log_time) return false;
-                                        // Include all records on the same date >= morningStart
+                                        // Include records within morning period
                                         return $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d') &&
-                                               $att->log_time->gte($morningStart);
+                                               $att->log_time->gte($morningStart) &&
+                                               $att->log_time->lte($morningEnd);
                                     })->sortBy('log_time');
                                     
-                                    if ($morningTimeIns->isNotEmpty()) {
+                                    if ($morningTimeIns->isNotEmpty() && $lateRule->time_in_morning) {
                                         $firstMorningTimeIn = $morningTimeIns->first();
                                         // Penalty ONLY if scan time exceeds EVENT start time
                                         // Allowed time is when scanning starts, not a penalty threshold
@@ -324,12 +317,46 @@ class MyAttendanceController extends Controller
                                             $latePenalty += ($lateRule->late_penalty ?? 0);
                                         }
                                     }
+                                    
+                                    // Check for missing time out - if has time in but no time out, apply penalty
+                                    // This check is independent of late time in check
+                                    // For missing time out check, we need to check ALL time ins on same date (not just within period)
+                                    // because time in might be before morning start but still related to morning period
+                                    $allMorningTimeIns = $eventAttendances->filter(function($att) use ($morningStart, $scheduleType) {
+                                        // First check if it's a time in record (workstate = 0)
+                                        if ($att->workstate != 0 && $att->workstate != "0") return false;
+                                        
+                                        if (!$att->log_time) return false;
+                                        
+                                        $isOnMorningDate = $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d');
+                                        
+                                        if ($scheduleType === 'whole_day') {
+                                            // For whole_day: include all records on same date before morning end
+                                            return $isOnMorningDate;
+                                        } else {
+                                            // For half_day_morning: include ALL records on same date (regardless of time)
+                                            return $isOnMorningDate;
+                                        }
+                                    });
+                                    
+                                    if ($allMorningTimeIns->isNotEmpty()) {
+                                        $morningTimeOuts = $eventAttendances->filter(function($att) use ($morningStart, $morningEnd) {
+                                            // Check if it's a time out record (workstate = 1)
+                                            if ($att->workstate != 1 && $att->workstate != "1") return false;
+                                            
+                                            if (!$att->log_time) return false;
+                                            // Check if time out is within morning period
+                                            return $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d') &&
+                                                   $att->log_time->gte($morningStart) &&
+                                                   $att->log_time->lte($morningEnd);
+                                        });
+                                        
+                                        // If has time in but no time out, apply penalty
+                                        if ($morningTimeOuts->isEmpty()) {
+                                            $latePenalty += ($lateRule->late_penalty ?? 0);
+                                        }
+                                    }
                                 }
-                                
-                                // Time out penalties are disabled - no penalty for time out violations
-                                // if ($morningStart && $morningEnd && $lateRule->time_out_morning) {
-                                //     ... time out penalty calculation removed ...
-                                // }
                             }
                             
                             // Afternoon period check
@@ -343,18 +370,10 @@ class MyAttendanceController extends Controller
                                     $morningEndForAfternoon = $event->end_datetime_morning ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
                                 }
                                 
-                                if ($afternoonStart && $afternoonEnd && $lateRule->time_in_afternoon) {
-                                    // Parse allowed time in, ensuring proper time format
-                                    $timeInAfternoonStr = $lateRule->time_in_afternoon;
-                                    if (strlen($timeInAfternoonStr) == 5) {
-                                        $timeInAfternoonStr .= ':00';
-                                    }
-                                    $allowedTimeIn = \Carbon\Carbon::parse($afternoonStart->format('Y-m-d') . ' ' . $timeInAfternoonStr);
-                                    
+                                if ($afternoonStart && $afternoonEnd) {
                                     // Check time in records - include ALL records on same date >= afternoonStart
-                                    // Don't restrict to afternoonEnd to catch late scans that exceed event start time
                                     // Filter for workstate 0 (time in) first, then filter by date and time
-                                    $afternoonTimeIns = $eventAttendances->filter(function($att) use ($afternoonStart, $scheduleType, $morningEndForAfternoon) {
+                                    $afternoonTimeIns = $eventAttendances->filter(function($att) use ($afternoonStart, $afternoonEnd, $scheduleType, $morningEndForAfternoon) {
                                         // First check if it's a time in record (workstate = 0)
                                         if ($att->workstate != 0 && $att->workstate != "0") return false;
                                         
@@ -363,20 +382,25 @@ class MyAttendanceController extends Controller
                                         $isOnAfternoonDate = $att->log_time->format('Y-m-d') === $afternoonStart->format('Y-m-d');
                                         
                                         if ($scheduleType === 'whole_day') {
-                                            // For whole_day: include records on same date that are after morning end (or if no morning end, all records on date)
-                                            // This includes records BEFORE afternoon start so we can properly check if they exceed event start time
+                                            // For whole_day: include records on same date that are after morning end and within afternoon period
                                             if ($morningEndForAfternoon) {
-                                                return $isOnAfternoonDate && $att->log_time->gt($morningEndForAfternoon);
+                                                return $isOnAfternoonDate && 
+                                                       $att->log_time->gt($morningEndForAfternoon) &&
+                                                       $att->log_time->gte($afternoonStart) &&
+                                                       $att->log_time->lte($afternoonEnd);
                                             }
-                                            return $isOnAfternoonDate;
+                                            return $isOnAfternoonDate &&
+                                                   $att->log_time->gte($afternoonStart) &&
+                                                   $att->log_time->lte($afternoonEnd);
                                         } else {
-                                            // For half_day_afternoon: include all records on same date >= afternoonStart
-                                            // Don't restrict to afternoonEnd to catch late scans
-                                            return $isOnAfternoonDate && $att->log_time->gte($afternoonStart);
+                                            // For half_day_afternoon: include all records on same date within afternoon period
+                                            return $isOnAfternoonDate && 
+                                                   $att->log_time->gte($afternoonStart) &&
+                                                   $att->log_time->lte($afternoonEnd);
                                         }
                                     })->sortBy('log_time');
                                     
-                                    if ($afternoonTimeIns->isNotEmpty()) {
+                                    if ($afternoonTimeIns->isNotEmpty() && $lateRule->time_in_afternoon) {
                                         $firstAfternoonTimeIn = $afternoonTimeIns->first();
                                         // Penalty ONLY if scan time exceeds EVENT start time
                                         // Allowed time is when scanning starts, not a penalty threshold
@@ -385,19 +409,56 @@ class MyAttendanceController extends Controller
                                             $latePenalty += ($lateRule->late_penalty ?? 0);
                                         }
                                     }
+                                    
+                                    // Check for missing time out - if has time in but no time out, apply penalty
+                                    // This check is independent of late time in check
+                                    // For missing time out check, we need to check ALL time ins on same date (not just within period)
+                                    // because time in might be before afternoon start but still related to afternoon period
+                                    $allAfternoonTimeIns = $eventAttendances->filter(function($att) use ($afternoonStart, $scheduleType, $morningEndForAfternoon) {
+                                        // First check if it's a time in record (workstate = 0)
+                                        if ($att->workstate != 0 && $att->workstate != "0") return false;
+                                        
+                                        if (!$att->log_time) return false;
+                                        
+                                        $isOnAfternoonDate = $att->log_time->format('Y-m-d') === $afternoonStart->format('Y-m-d');
+                                        
+                                        if ($scheduleType === 'whole_day') {
+                                            // For whole_day: include all records on same date after morning end
+                                            if ($morningEndForAfternoon) {
+                                                return $isOnAfternoonDate && $att->log_time->gt($morningEndForAfternoon);
+                                            }
+                                            return $isOnAfternoonDate;
+                                        } else {
+                                            // For half_day_afternoon: include ALL records on same date (regardless of time)
+                                            return $isOnAfternoonDate;
+                                        }
+                                    });
+                                    
+                                    if ($allAfternoonTimeIns->isNotEmpty()) {
+                                        $afternoonTimeOuts = $eventAttendances->filter(function($att) use ($afternoonStart, $afternoonEnd) {
+                                            // Check if it's a time out record (workstate = 1)
+                                            if ($att->workstate != 1 && $att->workstate != "1") return false;
+                                            
+                                            if (!$att->log_time) return false;
+                                            // Check if time out is within afternoon period
+                                            return $att->log_time->format('Y-m-d') === $afternoonStart->format('Y-m-d') &&
+                                                   $att->log_time->gte($afternoonStart) &&
+                                                   $att->log_time->lte($afternoonEnd);
+                                        });
+                                        
+                                        // If has time in but no time out, apply penalty
+                                        if ($afternoonTimeOuts->isEmpty()) {
+                                            $latePenalty += ($lateRule->late_penalty ?? 0);
+                                        }
+                                    }
                                 }
-                                
-                                // Time out penalties are disabled - no penalty for time out violations
-                                // if ($afternoonStart && $afternoonEnd && $lateRule->time_out_afternoon) {
-                                //     ... time out penalty calculation removed ...
-                                // }
                             }
                         }
                         
                         // Update the item using collection map method
-                        // Total penalty = absence fine + late penalty (time in violations only)
-                        // Time out penalties are disabled
+                        // Total penalty = absence fine + late penalty (time in violations + missing time out)
                         $totalPenalty = $absenceFine + $latePenalty;
+                        
                         $formattedAttendances = $formattedAttendances->map(function($item) use ($eventKey, $absenceFine, $latePenalty, $totalPenalty) {
                             if ($item['event_id'] == $eventKey) {
                                 $item['late_penalty'] = $latePenalty;
@@ -663,44 +724,49 @@ class MyAttendanceController extends Controller
                             // Calculate late penalties
                             // Check each attendance record against its corresponding period's allowed time
                             if ($lateRule && !$eventAttendances->isEmpty()) {
-                                // Morning period check
-                                if ($scheduleType === 'whole_day' || $scheduleType === 'half_day_morning') {
-                                    $morningStart = $event->start_datetime_morning ? \Carbon\Carbon::parse($event->start_datetime_morning) : null;
-                                    $morningEnd = $event->end_datetime_morning ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
+                            // Morning period check
+                            if ($scheduleType === 'whole_day' || $scheduleType === 'half_day_morning') {
+                                $morningStart = $event->start_datetime_morning ? \Carbon\Carbon::parse($event->start_datetime_morning) : null;
+                                $morningEnd = $event->end_datetime_morning ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
+                                
+                                if ($morningStart && $morningEnd) {
+                                    // Check time in records - include ALL records on same date within morning period
+                                    $morningTimeIns = $eventAttendances->where('workstate', 0)->filter(function($att) use ($morningStart, $morningEnd) {
+                                        if (!$att->log_time) return false;
+                                        // Include records within morning period
+                                        return $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d') &&
+                                               $att->log_time->gte($morningStart) &&
+                                               $att->log_time->lte($morningEnd);
+                                    })->sortBy('log_time');
                                     
-                                    if ($morningStart && $morningEnd && $lateRule->time_in_morning) {
-                                        // Parse allowed time in, ensuring proper time format
-                                        $timeInMorningStr = $lateRule->time_in_morning;
-                                        if (strlen($timeInMorningStr) == 5) {
-                                            $timeInMorningStr .= ':00';
-                                        }
-                                        $allowedTimeIn = \Carbon\Carbon::parse($morningStart->format('Y-m-d') . ' ' . $timeInMorningStr);
-                                        
-                                        // Check time in records - include ALL records on same date >= morningStart
-                                        // Don't restrict to morningEnd to catch late scans that exceed event start time
-                                        $morningTimeIns = $eventAttendances->where('workstate', 0)->filter(function($att) use ($morningStart) {
-                                            if (!$att->log_time) return false;
-                                            // Include all records on the same date >= morningStart
-                                            return $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d') &&
-                                                   $att->log_time->gte($morningStart);
-                                        })->sortBy('log_time');
-                                        
-                                        if ($morningTimeIns->isNotEmpty()) {
-                                            $firstMorningTimeIn = $morningTimeIns->first();
-                                            // Penalty ONLY if scan time exceeds EVENT start time
-                                            // Allowed time is when scanning starts, not a penalty threshold
-                                            if ($firstMorningTimeIn->log_time && 
-                                                $firstMorningTimeIn->log_time->gt($morningStart)) {
-                                                $latePenalty += ($lateRule->late_penalty ?? 0);
-                                            }
+                                    if ($morningTimeIns->isNotEmpty() && $lateRule->time_in_morning) {
+                                        $firstMorningTimeIn = $morningTimeIns->first();
+                                        // Penalty ONLY if scan time exceeds EVENT start time
+                                        // Allowed time is when scanning starts, not a penalty threshold
+                                        if ($firstMorningTimeIn->log_time && 
+                                            $firstMorningTimeIn->log_time->gt($morningStart)) {
+                                            $latePenalty += ($lateRule->late_penalty ?? 0);
                                         }
                                     }
                                     
-                                    // Time out penalties are disabled - no penalty for time out violations
-                                    // if ($morningStart && $morningEnd && $lateRule->time_out_morning) {
-                                    //     ... time out penalty calculation removed ...
-                                    // }
+                                    // Check for missing time out - if has time in but no time out, apply penalty
+                                    // This check is independent of late time in check
+                                    if ($morningTimeIns->isNotEmpty()) {
+                                        $morningTimeOuts = $eventAttendances->where('workstate', 1)->filter(function($att) use ($morningStart, $morningEnd) {
+                                            if (!$att->log_time) return false;
+                                            // Check if time out is within morning period
+                                            return $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d') &&
+                                                   $att->log_time->gte($morningStart) &&
+                                                   $att->log_time->lte($morningEnd);
+                                        });
+                                        
+                                        // If has time in but no time out, apply penalty
+                                        if ($morningTimeOuts->isEmpty()) {
+                                            $latePenalty += ($lateRule->late_penalty ?? 0);
+                                        }
+                                    }
                                 }
+                            }
                                 
                                 // Afternoon period check
                                 if ($scheduleType === 'whole_day' || $scheduleType === 'half_day_afternoon') {
@@ -713,36 +779,33 @@ class MyAttendanceController extends Controller
                                         $morningEndForAfternoon = $event->end_datetime_morning ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
                                     }
                                     
-                                    if ($afternoonStart && $afternoonEnd && $lateRule->time_in_afternoon) {
-                                        // Parse allowed time in, ensuring proper time format
-                                        $timeInAfternoonStr = $lateRule->time_in_afternoon;
-                                        if (strlen($timeInAfternoonStr) == 5) {
-                                            $timeInAfternoonStr .= ':00';
-                                        }
-                                        $allowedTimeIn = \Carbon\Carbon::parse($afternoonStart->format('Y-m-d') . ' ' . $timeInAfternoonStr);
-                                        
-                                        // Check time in records - include ALL records on same date >= afternoonStart
-                                        // Don't restrict to afternoonEnd to catch late scans that exceed event start time
-                                        $afternoonTimeIns = $eventAttendances->where('workstate', 0)->filter(function($att) use ($afternoonStart, $scheduleType, $morningEndForAfternoon) {
+                                    if ($afternoonStart && $afternoonEnd) {
+                                        // Check time in records - include ALL records on same date within afternoon period
+                                        $afternoonTimeIns = $eventAttendances->where('workstate', 0)->filter(function($att) use ($afternoonStart, $afternoonEnd, $scheduleType, $morningEndForAfternoon) {
                                             if (!$att->log_time) return false;
                                             
                                             $isOnAfternoonDate = $att->log_time->format('Y-m-d') === $afternoonStart->format('Y-m-d');
                                             
                                             if ($scheduleType === 'whole_day') {
-                                                // For whole_day: include records on same date that are after morning end
-                                                // This includes records BEFORE afternoon start so we can properly check if they exceed event start time
+                                                // For whole_day: include records on same date that are after morning end and within afternoon period
                                                 if ($morningEndForAfternoon) {
-                                                    return $isOnAfternoonDate && $att->log_time->gt($morningEndForAfternoon);
+                                                    return $isOnAfternoonDate && 
+                                                           $att->log_time->gt($morningEndForAfternoon) &&
+                                                           $att->log_time->gte($afternoonStart) &&
+                                                           $att->log_time->lte($afternoonEnd);
                                                 }
-                                                return $isOnAfternoonDate;
+                                                return $isOnAfternoonDate &&
+                                                       $att->log_time->gte($afternoonStart) &&
+                                                       $att->log_time->lte($afternoonEnd);
                                             } else {
-                                                // For half_day_afternoon: include all records on same date >= afternoonStart
-                                                // Don't restrict to afternoonEnd to catch late scans
-                                                return $isOnAfternoonDate && $att->log_time->gte($afternoonStart);
+                                                // For half_day_afternoon: include all records on same date within afternoon period
+                                                return $isOnAfternoonDate && 
+                                                       $att->log_time->gte($afternoonStart) &&
+                                                       $att->log_time->lte($afternoonEnd);
                                             }
                                         })->sortBy('log_time');
                                         
-                                        if ($afternoonTimeIns->isNotEmpty()) {
+                                        if ($afternoonTimeIns->isNotEmpty() && $lateRule->time_in_afternoon) {
                                             $firstAfternoonTimeIn = $afternoonTimeIns->first();
                                             // Penalty ONLY if scan time exceeds EVENT start time
                                             // Allowed time is when scanning starts, not a penalty threshold
@@ -751,12 +814,24 @@ class MyAttendanceController extends Controller
                                                 $latePenalty += ($lateRule->late_penalty ?? 0);
                                             }
                                         }
+                                        
+                                        // Check for missing time out - if has time in but no time out, apply penalty
+                                        // This check is independent of late time in check
+                                        if ($afternoonTimeIns->isNotEmpty()) {
+                                            $afternoonTimeOuts = $eventAttendances->where('workstate', 1)->filter(function($att) use ($afternoonStart, $afternoonEnd) {
+                                                if (!$att->log_time) return false;
+                                                // Check if time out is within afternoon period
+                                                return $att->log_time->format('Y-m-d') === $afternoonStart->format('Y-m-d') &&
+                                                       $att->log_time->gte($afternoonStart) &&
+                                                       $att->log_time->lte($afternoonEnd);
+                                            });
+                                            
+                                            // If has time in but no time out, apply penalty
+                                            if ($afternoonTimeOuts->isEmpty()) {
+                                                $latePenalty += ($lateRule->late_penalty ?? 0);
+                                            }
+                                        }
                                     }
-                                    
-                                    // Time out penalties are disabled - no penalty for time out violations
-                                    // if ($afternoonStart && $afternoonEnd && $lateRule->time_out_afternoon) {
-                                    //     ... time out penalty calculation removed ...
-                                    // }
                                 }
                             }
                             
@@ -1112,24 +1187,17 @@ class MyAttendanceController extends Controller
                         $morningStart = $event->start_datetime_morning ? \Carbon\Carbon::parse($event->start_datetime_morning) : null;
                         $morningEnd = $event->end_datetime_morning ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
                         
-                        if ($morningStart && $morningEnd && $lateRule->time_in_morning) {
-                            // Parse allowed time in, ensuring proper time format
-                            $timeInMorningStr = $lateRule->time_in_morning;
-                            if (strlen($timeInMorningStr) == 5) {
-                                $timeInMorningStr .= ':00';
-                            }
-                            $allowedTimeIn = \Carbon\Carbon::parse($morningStart->format('Y-m-d') . ' ' . $timeInMorningStr);
-                            
-                            // Check time in records - include ALL records on same date >= morningStart
-                            // Don't restrict to morningEnd to catch late scans that exceed event start time
-                            $morningTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($morningStart) {
+                        if ($morningStart && $morningEnd) {
+                            // Check time in records - include ALL records on same date within morning period
+                            $morningTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($morningStart, $morningEnd) {
                                 if (!$att->log_time) return false;
-                                // Include all records on the same date >= morningStart
+                                // Include records within morning period
                                 return $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d') &&
-                                       $att->log_time->gte($morningStart);
+                                       $att->log_time->gte($morningStart) &&
+                                       $att->log_time->lte($morningEnd);
                             })->sortBy('log_time');
                             
-                            if ($morningTimeIns->isNotEmpty()) {
+                            if ($morningTimeIns->isNotEmpty() && $lateRule->time_in_morning) {
                                 $firstMorningTimeIn = $morningTimeIns->first();
                                 // Penalty ONLY if scan time exceeds EVENT start time
                                 // Allowed time is when scanning starts, not a penalty threshold
@@ -1138,12 +1206,24 @@ class MyAttendanceController extends Controller
                                     $latePenalty += ($lateRule->late_penalty ?? 0);
                                 }
                             }
+                            
+                            // Check for missing time out - if has time in but no time out, apply penalty
+                            // This check is independent of late time in check
+                            if ($morningTimeIns->isNotEmpty()) {
+                                $morningTimeOuts = $attendances->where('workstate', 1)->filter(function($att) use ($morningStart, $morningEnd) {
+                                    if (!$att->log_time) return false;
+                                    // Check if time out is within morning period
+                                    return $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d') &&
+                                           $att->log_time->gte($morningStart) &&
+                                           $att->log_time->lte($morningEnd);
+                                });
+                                
+                                // If has time in but no time out, apply penalty
+                                if ($morningTimeOuts->isEmpty()) {
+                                    $latePenalty += ($lateRule->late_penalty ?? 0);
+                                }
+                            }
                         }
-                        
-                        // Time out penalties are disabled - no penalty for time out violations
-                        // if ($morningStart && $morningEnd && $lateRule->time_out_morning) {
-                        //     ... time out penalty calculation removed ...
-                        // }
                     }
                     
                     // Afternoon period check
@@ -1157,36 +1237,33 @@ class MyAttendanceController extends Controller
                             $morningEndForAfternoon = $event->end_datetime_morning ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
                         }
                         
-                        if ($afternoonStart && $afternoonEnd && $lateRule->time_in_afternoon) {
-                            // Parse allowed time in, ensuring proper time format
-                            $timeInAfternoonStr = $lateRule->time_in_afternoon;
-                            if (strlen($timeInAfternoonStr) == 5) {
-                                $timeInAfternoonStr .= ':00';
-                            }
-                            $allowedTimeIn = \Carbon\Carbon::parse($afternoonStart->format('Y-m-d') . ' ' . $timeInAfternoonStr);
-                            
-                            // Check time in records - include ALL records on same date >= afternoonStart
-                            // Don't restrict to afternoonEnd to catch late scans that exceed event start time
-                            $afternoonTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($afternoonStart, $scheduleType, $morningEndForAfternoon) {
+                        if ($afternoonStart && $afternoonEnd) {
+                            // Check time in records - include ALL records on same date within afternoon period
+                            $afternoonTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($afternoonStart, $afternoonEnd, $scheduleType, $morningEndForAfternoon) {
                                 if (!$att->log_time) return false;
                                 
                                 $isOnAfternoonDate = $att->log_time->format('Y-m-d') === $afternoonStart->format('Y-m-d');
                                 
                                 if ($scheduleType === 'whole_day') {
-                                    // For whole_day: include records on same date that are after morning end
-                                    // This includes records BEFORE afternoon start so we can properly check if they exceed event start time
+                                    // For whole_day: include records on same date that are after morning end and within afternoon period
                                     if ($morningEndForAfternoon) {
-                                        return $isOnAfternoonDate && $att->log_time->gt($morningEndForAfternoon);
+                                        return $isOnAfternoonDate && 
+                                               $att->log_time->gt($morningEndForAfternoon) &&
+                                               $att->log_time->gte($afternoonStart) &&
+                                               $att->log_time->lte($afternoonEnd);
                                     }
-                                    return $isOnAfternoonDate;
+                                    return $isOnAfternoonDate &&
+                                           $att->log_time->gte($afternoonStart) &&
+                                           $att->log_time->lte($afternoonEnd);
                                 } else {
-                                    // For half_day_afternoon: include all records on same date >= afternoonStart
-                                    // Don't restrict to afternoonEnd to catch late scans
-                                    return $isOnAfternoonDate && $att->log_time->gte($afternoonStart);
+                                    // For half_day_afternoon: include all records on same date within afternoon period
+                                    return $isOnAfternoonDate && 
+                                           $att->log_time->gte($afternoonStart) &&
+                                           $att->log_time->lte($afternoonEnd);
                                 }
                             })->sortBy('log_time');
                             
-                            if ($afternoonTimeIns->isNotEmpty()) {
+                            if ($afternoonTimeIns->isNotEmpty() && $lateRule->time_in_afternoon) {
                                 $firstAfternoonTimeIn = $afternoonTimeIns->first();
                                 // Penalty ONLY if scan time exceeds EVENT start time
                                 // Allowed time is when scanning starts, not a penalty threshold
@@ -1195,12 +1272,24 @@ class MyAttendanceController extends Controller
                                     $latePenalty += ($lateRule->late_penalty ?? 0);
                                 }
                             }
+                            
+                            // Check for missing time out - if has time in but no time out, apply penalty
+                            // This check is independent of late time in check
+                            if ($afternoonTimeIns->isNotEmpty()) {
+                                $afternoonTimeOuts = $attendances->where('workstate', 1)->filter(function($att) use ($afternoonStart, $afternoonEnd) {
+                                    if (!$att->log_time) return false;
+                                    // Check if time out is within afternoon period
+                                    return $att->log_time->format('Y-m-d') === $afternoonStart->format('Y-m-d') &&
+                                           $att->log_time->gte($afternoonStart) &&
+                                           $att->log_time->lte($afternoonEnd);
+                                });
+                                
+                                // If has time in but no time out, apply penalty
+                                if ($afternoonTimeOuts->isEmpty()) {
+                                    $latePenalty += ($lateRule->late_penalty ?? 0);
+                                }
+                            }
                         }
-                        
-                        // Time out penalties are disabled - no penalty for time out violations
-                        // if ($afternoonStart && $afternoonEnd && $lateRule->time_out_afternoon) {
-                        //     ... time out penalty calculation removed ...
-                        // }
                     }
                 }
                 
@@ -1438,23 +1527,17 @@ class MyAttendanceController extends Controller
                             $morningStart = $event->start_datetime_morning ? \Carbon\Carbon::parse($event->start_datetime_morning) : null;
                             $morningEnd = $event->end_datetime_morning ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
                             
-                            if ($morningStart && $morningEnd && $lateRule->time_in_morning) {
-                                $timeInMorningStr = $lateRule->time_in_morning;
-                                if (strlen($timeInMorningStr) == 5) {
-                                    $timeInMorningStr .= ':00';
-                                }
-                                $allowedTimeIn = \Carbon\Carbon::parse($morningStart->format('Y-m-d') . ' ' . $timeInMorningStr);
-                                
-                                // Check time in records - include ALL records on same date >= morningStart
-                                // Don't restrict to morningEnd to catch late scans that exceed event start time
-                                $morningTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($morningStart) {
+                            if ($morningStart && $morningEnd) {
+                                // Check time in records - include ALL records on same date within morning period
+                                $morningTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($morningStart, $morningEnd) {
                                     if (!$att->log_time) return false;
-                                    // Include all records on the same date >= morningStart
+                                    // Include records within morning period
                                     return $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d') &&
-                                           $att->log_time->gte($morningStart);
+                                           $att->log_time->gte($morningStart) &&
+                                           $att->log_time->lte($morningEnd);
                                 })->sortBy('log_time');
                                 
-                                if ($morningTimeIns->isNotEmpty()) {
+                                if ($morningTimeIns->isNotEmpty() && $lateRule->time_in_morning) {
                                     $firstMorningTimeIn = $morningTimeIns->first();
                                     // Penalty ONLY if scan time exceeds EVENT start time
                                     // Allowed time is when scanning starts, not a penalty threshold
@@ -1463,12 +1546,24 @@ class MyAttendanceController extends Controller
                                         $latePenalty += ($lateRule->late_penalty ?? 0);
                                     }
                                 }
+                                
+                                // Check for missing time out - if has time in but no time out, apply penalty
+                                // This check is independent of late time in check
+                                if ($morningTimeIns->isNotEmpty()) {
+                                    $morningTimeOuts = $attendances->where('workstate', 1)->filter(function($att) use ($morningStart, $morningEnd) {
+                                        if (!$att->log_time) return false;
+                                        // Check if time out is within morning period
+                                        return $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d') &&
+                                               $att->log_time->gte($morningStart) &&
+                                               $att->log_time->lte($morningEnd);
+                                    });
+                                    
+                                    // If has time in but no time out, apply penalty
+                                    if ($morningTimeOuts->isEmpty()) {
+                                        $latePenalty += ($lateRule->late_penalty ?? 0);
+                                    }
+                                }
                             }
-                            
-                            // Time out penalties are disabled - no penalty for time out violations
-                            // if ($morningStart && $morningEnd && $lateRule->time_out_morning) {
-                            //     ... time out penalty calculation removed ...
-                            // }
                         }
                         
                         if ($scheduleType === 'whole_day' || $scheduleType === 'half_day_afternoon') {
@@ -1481,35 +1576,33 @@ class MyAttendanceController extends Controller
                                 $morningEndForAfternoon = $event->end_datetime_morning ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
                             }
                             
-                            if ($afternoonStart && $afternoonEnd && $lateRule->time_in_afternoon) {
-                                $timeInAfternoonStr = $lateRule->time_in_afternoon;
-                                if (strlen($timeInAfternoonStr) == 5) {
-                                    $timeInAfternoonStr .= ':00';
-                                }
-                                $allowedTimeIn = \Carbon\Carbon::parse($afternoonStart->format('Y-m-d') . ' ' . $timeInAfternoonStr);
-                                
-                                // Check time in records - include ALL records on same date >= afternoonStart
-                                // Don't restrict to afternoonEnd to catch late scans that exceed event start time
-                                $afternoonTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($afternoonStart, $scheduleType, $morningEndForAfternoon) {
+                            if ($afternoonStart && $afternoonEnd) {
+                                // Check time in records - include ALL records on same date within afternoon period
+                                $afternoonTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($afternoonStart, $afternoonEnd, $scheduleType, $morningEndForAfternoon) {
                                     if (!$att->log_time) return false;
                                     
                                     $isOnAfternoonDate = $att->log_time->format('Y-m-d') === $afternoonStart->format('Y-m-d');
                                     
                                     if ($scheduleType === 'whole_day') {
-                                        // For whole_day: include records on same date that are after morning end
-                                        // This includes records BEFORE afternoon start so we can properly check if they exceed event start time
+                                        // For whole_day: include records on same date that are after morning end and within afternoon period
                                         if ($morningEndForAfternoon) {
-                                            return $isOnAfternoonDate && $att->log_time->gt($morningEndForAfternoon);
+                                            return $isOnAfternoonDate && 
+                                                   $att->log_time->gt($morningEndForAfternoon) &&
+                                                   $att->log_time->gte($afternoonStart) &&
+                                                   $att->log_time->lte($afternoonEnd);
                                         }
-                                        return $isOnAfternoonDate;
+                                        return $isOnAfternoonDate &&
+                                               $att->log_time->gte($afternoonStart) &&
+                                               $att->log_time->lte($afternoonEnd);
                                     } else {
-                                        // For half_day_afternoon: include all records on same date >= afternoonStart
-                                        // Don't restrict to afternoonEnd to catch late scans
-                                        return $isOnAfternoonDate && $att->log_time->gte($afternoonStart);
+                                        // For half_day_afternoon: include all records on same date within afternoon period
+                                        return $isOnAfternoonDate && 
+                                               $att->log_time->gte($afternoonStart) &&
+                                               $att->log_time->lte($afternoonEnd);
                                     }
                                 })->sortBy('log_time');
                                 
-                                if ($afternoonTimeIns->isNotEmpty()) {
+                                if ($afternoonTimeIns->isNotEmpty() && $lateRule->time_in_afternoon) {
                                     $firstAfternoonTimeIn = $afternoonTimeIns->first();
                                     // Penalty ONLY if scan time exceeds EVENT start time
                                     // Allowed time is when scanning starts, not a penalty threshold
@@ -1518,12 +1611,24 @@ class MyAttendanceController extends Controller
                                         $latePenalty += ($lateRule->late_penalty ?? 0);
                                     }
                                 }
+                                
+                                // Check for missing time out - if has time in but no time out, apply penalty
+                                // This check is independent of late time in check
+                                if ($afternoonTimeIns->isNotEmpty()) {
+                                    $afternoonTimeOuts = $attendances->where('workstate', 1)->filter(function($att) use ($afternoonStart, $afternoonEnd) {
+                                        if (!$att->log_time) return false;
+                                        // Check if time out is within afternoon period
+                                        return $att->log_time->format('Y-m-d') === $afternoonStart->format('Y-m-d') &&
+                                               $att->log_time->gte($afternoonStart) &&
+                                               $att->log_time->lte($afternoonEnd);
+                                    });
+                                    
+                                    // If has time in but no time out, apply penalty
+                                    if ($afternoonTimeOuts->isEmpty()) {
+                                        $latePenalty += ($lateRule->late_penalty ?? 0);
+                                    }
+                                }
                             }
-                            
-                            // Time out penalties are disabled - no penalty for time out violations
-                            // if ($afternoonStart && $afternoonEnd && $lateRule->time_out_afternoon) {
-                            //     ... time out penalty calculation removed ...
-                            // }
                         }
                     }
                     
@@ -1731,6 +1836,96 @@ class MyAttendanceController extends Controller
                         // if ($scheduleType === 'whole_day' || $scheduleType === 'half_day_afternoon') {
                         //     ... afternoon time out violation recording removed ...
                         // }
+                    }
+                    
+                    // Save missing time out records (if has time in but no time out)
+                    if ($lateRule && $attendances->isNotEmpty()) {
+                        // Check morning period for missing time out
+                        if ($scheduleType === 'whole_day' || $scheduleType === 'half_day_morning') {
+                            $morningStart = ($this->isValidDateTime($event->start_datetime_morning)) ? \Carbon\Carbon::parse($event->start_datetime_morning) : null;
+                            $morningEnd = ($this->isValidDateTime($event->end_datetime_morning)) ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
+                            
+                            if ($morningStart && $morningEnd) {
+                                // Check if has time in
+                                $morningTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($morningStart) {
+                                    if (!$att->log_time) return false;
+                                    return $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d') &&
+                                           $att->log_time->gte($morningStart);
+                                });
+                                
+                                // Check if has time out
+                                $morningTimeOuts = $attendances->where('workstate', 1)->filter(function($att) use ($morningStart, $morningEnd) {
+                                    if (!$att->log_time) return false;
+                                    return $att->log_time->format('Y-m-d') === $morningStart->format('Y-m-d') &&
+                                           $att->log_time->gte($morningStart) &&
+                                           $att->log_time->lte($morningEnd);
+                                });
+                                
+                                // If has time in but no time out, save missing time out
+                                if ($morningTimeIns->isNotEmpty() && $morningTimeOuts->isEmpty()) {
+                                    if ($this->isValidDateTime($event->end_datetime_morning)) {
+                                        attendance_payments_time_schedule::create([
+                                            'attendance_payments_id' => $payment->id,
+                                            'type_of_schedule_pay' => 'morning',
+                                            'log_time' => $event->end_datetime_morning,
+                                            'workstate' => 1,
+                                            'status' => 'active'
+                                        ]);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Check afternoon period for missing time out
+                        if ($scheduleType === 'whole_day' || $scheduleType === 'half_day_afternoon') {
+                            $afternoonStart = ($this->isValidDateTime($event->start_datetime_afternoon)) ? \Carbon\Carbon::parse($event->start_datetime_afternoon) : null;
+                            $afternoonEnd = ($this->isValidDateTime($event->end_datetime_afternoon)) ? \Carbon\Carbon::parse($event->end_datetime_afternoon) : null;
+                            
+                            if ($afternoonStart && $afternoonEnd) {
+                                // Get morning end for whole_day events (needed for filtering)
+                                $morningEndForAfternoon = null;
+                                if ($scheduleType === 'whole_day') {
+                                    $morningEndForAfternoon = ($this->isValidDateTime($event->end_datetime_morning)) ? \Carbon\Carbon::parse($event->end_datetime_morning) : null;
+                                }
+                                
+                                // Check if has time in
+                                $afternoonTimeIns = $attendances->where('workstate', 0)->filter(function($att) use ($afternoonStart, $scheduleType, $morningEndForAfternoon) {
+                                    if (!$att->log_time) return false;
+                                    
+                                    $isOnAfternoonDate = $att->log_time->format('Y-m-d') === $afternoonStart->format('Y-m-d');
+                                    
+                                    if ($scheduleType === 'whole_day') {
+                                        if ($morningEndForAfternoon) {
+                                            return $isOnAfternoonDate && $att->log_time->gt($morningEndForAfternoon);
+                                        }
+                                        return $isOnAfternoonDate;
+                                    } else {
+                                        return $isOnAfternoonDate && $att->log_time->gte($afternoonStart);
+                                    }
+                                });
+                                
+                                // Check if has time out
+                                $afternoonTimeOuts = $attendances->where('workstate', 1)->filter(function($att) use ($afternoonStart, $afternoonEnd) {
+                                    if (!$att->log_time) return false;
+                                    return $att->log_time->format('Y-m-d') === $afternoonStart->format('Y-m-d') &&
+                                           $att->log_time->gte($afternoonStart) &&
+                                           $att->log_time->lte($afternoonEnd);
+                                });
+                                
+                                // If has time in but no time out, save missing time out
+                                if ($afternoonTimeIns->isNotEmpty() && $afternoonTimeOuts->isEmpty()) {
+                                    if ($this->isValidDateTime($event->end_datetime_afternoon)) {
+                                        attendance_payments_time_schedule::create([
+                                            'attendance_payments_id' => $payment->id,
+                                            'type_of_schedule_pay' => 'afternoon',
+                                            'log_time' => $event->end_datetime_afternoon,
+                                            'workstate' => 1,
+                                            'status' => 'active'
+                                        ]);
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     $savedCount++;
